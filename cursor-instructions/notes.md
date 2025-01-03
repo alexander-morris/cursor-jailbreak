@@ -1002,3 +1002,118 @@ THIS IS AN APPEND-ONLY LIST - you may append in-line or edit for readability, bu
    - Added hardware key requirement option
    - Added bypass protection
    - Added key revocation
+
+# Multi-Monitor Support Implementation Notes
+
+## Current Implementation Analysis
+1. **Screen Capture Method**
+   - Current implementation uses PyAutoGUI's screenshot function
+   - Limited to capturing entire screen at once
+   - No support for individual monitor capture
+   - Performance impact with large/multiple monitors
+
+2. **Coordinate Handling**
+   - Coordinates are relative to primary monitor
+   - No translation for secondary monitor coordinates
+   - Potential for incorrect click positions
+
+3. **Calibration Process**
+   - Single calibration image for all monitors
+   - No per-monitor button appearance handling
+   - May fail on monitors with different scaling
+
+## Planned Improvements
+1. **Screen Capture**
+   - Switch to `mss` library for efficient capture
+   - Implement per-monitor capture
+   - Handle monitor-specific coordinates
+   - Support different color spaces
+
+2. **Calibration**
+   - Add per-monitor calibration process
+   - Store calibration images in monitor-specific directories
+   - Handle different button appearances
+   - Support monitor hot-plug events
+
+3. **Click Handling**
+   - Implement proper coordinate translation
+   - Add rate limiting across all monitors
+   - Preserve cursor position after clicks
+   - Log monitor-specific click events
+
+4. **Error Recovery**
+   - Add note icon detection across monitors
+   - Implement automatic continue functionality
+   - Handle errors gracefully with logging
+   - Support recovery across all monitors
+
+## Security Considerations
+1. **Rate Limiting**
+   - Current implementation lacks rate limiting
+   - Need to add global click counter
+   - Implement 8 clicks per minute limit
+   - Add rate limit logging
+
+2. **Resource Management**
+   - Monitor memory usage with screen captures
+   - Implement proper resource cleanup
+   - Handle monitor connection changes
+   - Log resource usage metrics
+
+3. **Error Handling**
+   - Add comprehensive error catching
+   - Validate all coordinate calculations
+   - Handle screen capture failures
+   - Log all errors with context
+
+## Testing Requirements
+1. **Monitor Configuration**
+   - Test with different monitor counts
+   - Test various monitor arrangements
+   - Test different resolutions/scaling
+   - Test monitor hot-plug events
+
+2. **Performance Testing**
+   - Measure capture latency
+   - Monitor memory usage
+   - Track CPU utilization
+   - Log performance metrics
+
+3. **Error Recovery Testing**
+   - Test note detection accuracy
+   - Verify continue functionality
+   - Test error handling paths
+   - Validate logging output
+
+## Implementation Progress
+1. **Phase 1: Basic Multi-Monitor Support**
+   - [x] Initialize git repository
+   - [x] Create feature branch
+   - [x] Document features and plans
+   - [ ] Implement mss screen capture
+   - [ ] Add monitor detection
+   - [ ] Update coordinate handling
+
+2. **Phase 2: Calibration**
+   - [ ] Create monitor-specific directories
+   - [ ] Implement per-monitor calibration
+   - [ ] Handle calibration storage
+   - [ ] Add hot-plug support
+
+3. **Phase 3: Click Handling**
+   - [ ] Implement coordinate translation
+   - [ ] Add rate limiting
+   - [ ] Preserve cursor position
+   - [ ] Update logging
+
+4. **Phase 4: Error Recovery**
+   - [ ] Add note detection
+   - [ ] Implement continue functionality
+   - [ ] Handle errors gracefully
+   - [ ] Update logging
+
+5. **Phase 5: Testing**
+   - [ ] Write unit tests
+   - [ ] Add integration tests
+   - [ ] Perform performance testing
+   - [ ] Document test results

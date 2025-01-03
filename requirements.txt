@@ -1,5 +1,5 @@
-opencv-python>=4.8.0
-numpy>=1.24.0
-pyautogui>=0.9.54
-pillow>=10.0.0
-mss>=9.0.1 
+mss>=9.0.1
+numpy>=1.24.3
+opencv-python>=4.8.1.78
+Pillow>=10.1.0
+pyautogui>=0.9.54 

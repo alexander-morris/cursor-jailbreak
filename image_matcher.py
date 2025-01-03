@@ -1,149 +1,199 @@
-import os
-import mss
-import mss.tools
-import numpy as np
 import cv2
-from PIL import Image, ImageDraw
-from logging_config import setup_logging, log_error_with_context, save_debug_image
+import numpy as np
+from dataclasses import dataclass
+import logging
+from pathlib import Path
+
+@dataclass
+class MatchQuality:
+    structural_similarity: float
+    edge_similarity: float
+    histogram_similarity: float
+
+@dataclass
+class Match:
+    center_x: int
+    center_y: int
+    confidence: float
+    quality: MatchQuality
 
 class ImageMatcher:
-    def __init__(self, debug=False):
-        self.logger = setup_logging('image_matcher', debug)
+    def __init__(self, threshold=0.8, debug=False):
+        self.threshold = threshold
         self.debug = debug
-        self.screen = mss.mss()
-        self.template_cache = {}
-        self.logger.info("ImageMatcher initialized")
-
-    def get_monitors(self):
-        """Get list of available monitors with error handling."""
-        try:
-            monitors = self.screen.monitors[1:]  # Skip first monitor (represents "all monitors")
-            self.logger.debug(f"Found {len(monitors)} monitors")
-            return monitors
-        except Exception as e:
-            log_error_with_context(self.logger, e, "Failed to get monitors")
-            return []
-
-    def capture_screen(self, region):
-        """Capture screen region with error handling and debug output."""
-        try:
-            screenshot = self.screen.grab(region)
-            img = Image.frombytes('RGB', screenshot.size, screenshot.rgb)
+        
+        # Set up logging
+        self.logger = logging.getLogger('image_matcher')
+        if debug:
+            self.logger.setLevel(logging.DEBUG)
             
-            if self.debug:
-                path = save_debug_image(img, 'screen_capture', 'debug_output')
-                self.logger.debug(f"Saved screen capture: {path}")
+            # Create debug directory
+            self.debug_dir = Path('temp/debug')
+            self.debug_dir.mkdir(parents=True, exist_ok=True)
+
+    def find_template(self, image, template, threshold=None):
+        """Find a template in an image using template matching."""
+        if threshold is None:
+            threshold = self.threshold
             
-            return img
-        except Exception as e:
-            log_error_with_context(self.logger, e, f"Screen capture failed for region: {region}")
-            return None
-
-    def load_template(self, template_path):
-        """Load and cache template images with error handling."""
         try:
-            if template_path not in self.template_cache:
-                if not os.path.exists(template_path):
-                    raise FileNotFoundError(f"Template not found: {template_path}")
-                
-                template = Image.open(template_path)
-                self.template_cache[template_path] = template
-                self.logger.debug(f"Loaded template: {template_path}")
+            # Convert PIL Image to cv2 format if needed
+            if not isinstance(image, np.ndarray):
+                image = np.array(image)
+            if not isinstance(template, np.ndarray):
+                template = np.array(template)
             
-            return self.template_cache[template_path]
-        except Exception as e:
-            log_error_with_context(self.logger, e, f"Failed to load template: {template_path}")
-            return None
-
-    def find_template(self, screen_img, template_img, threshold=0.8):
-        """Find template in screen image with error handling and debug output."""
-        try:
-            if screen_img is None or template_img is None:
-                return None
-
-            # Convert images to numpy arrays
-            screen_np = np.array(screen_img)
-            template_np = np.array(template_img)
-
-            # Convert to grayscale
-            screen_gray = cv2.cvtColor(screen_np, cv2.COLOR_RGB2GRAY)
-            template_gray = cv2.cvtColor(template_np, cv2.COLOR_RGB2GRAY)
-
-            # Perform template matching
-            result = cv2.matchTemplate(screen_gray, template_gray, cv2.TM_CCOEFF_NORMED)
+            # Convert to BGR if needed
+            if len(image.shape) == 3 and image.shape[2] == 4:
+                image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+            if len(template.shape) == 3 and template.shape[2] == 4:
+                template = cv2.cvtColor(template, cv2.COLOR_BGRA2BGR)
+            
+            # Template matching
+            result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-
+            
             if max_val >= threshold:
-                match = {
-                    'confidence': max_val,
-                    'x': max_loc[0] + template_gray.shape[1] // 2,
-                    'y': max_loc[1] + template_gray.shape[0] // 2,
-                    'width': template_gray.shape[1],
-                    'height': template_gray.shape[0]
-                }
+                # Get region for quality calculation
+                h, w = template.shape[:2]
+                region = image[max_loc[1]:max_loc[1]+h, max_loc[0]:max_loc[0]+w]
+                
+                # Calculate quality metrics
+                quality = self._calculate_quality(region, template)
+                
+                # Create match object
+                match = Match(
+                    center_x=max_loc[0] + w//2,
+                    center_y=max_loc[1] + h//2,
+                    confidence=max_val,
+                    quality=quality
+                )
                 
                 if self.debug:
-                    self.logger.debug(f"Match found - Confidence: {max_val:.4f} at ({match['x']}, {match['y']})")
+                    self._save_debug_image(image, template, match)
                 
                 return match
             
             return None
-
+            
         except Exception as e:
-            log_error_with_context(self.logger, e, "Template matching failed")
+            self.logger.error(f"Error finding template: {str(e)}")
             return None
 
-    def find_all_matches(self, screen_img, threshold=0.8):
-        """Find all template matches in screen image."""
-        try:
-            matches = []
-            template_dir = os.path.join(os.path.dirname(__file__), 'images')
+    def find_all_matches(self, image, template, threshold=None, max_matches=10):
+        """Find all occurrences of a template in an image."""
+        if threshold is None:
+            threshold = self.threshold
             
-            if not os.path.exists(template_dir):
-                raise FileNotFoundError(f"Template directory not found: {template_dir}")
-
-            for template_file in os.listdir(template_dir):
-                if template_file.endswith(('.png', '.jpg', '.jpeg')):
-                    template_path = os.path.join(template_dir, template_file)
-                    template_img = self.load_template(template_path)
+        try:
+            # Convert images if needed
+            if not isinstance(image, np.ndarray):
+                image = np.array(image)
+            if not isinstance(template, np.ndarray):
+                template = np.array(template)
+            
+            # Convert to BGR if needed
+            if len(image.shape) == 3 and image.shape[2] == 4:
+                image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+            if len(template.shape) == 3 and template.shape[2] == 4:
+                template = cv2.cvtColor(template, cv2.COLOR_BGRA2BGR)
+            
+            # Template matching
+            result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
+            h, w = template.shape[:2]
+            
+            matches = []
+            while len(matches) < max_matches:
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                
+                if max_val < threshold:
+                    break
                     
-                    if template_img:
-                        match = self.find_template(screen_img, template_img, threshold)
-                        if match:
-                            matches.append(match)
-
-            if self.debug:
-                self.logger.debug(f"Found {len(matches)} matches above threshold {threshold}")
-
+                # Get region for quality calculation
+                region = image[max_loc[1]:max_loc[1]+h, max_loc[0]:max_loc[0]+w]
+                quality = self._calculate_quality(region, template)
+                
+                # Create match object
+                match = Match(
+                    center_x=max_loc[0] + w//2,
+                    center_y=max_loc[1] + h//2,
+                    confidence=max_val,
+                    quality=quality
+                )
+                matches.append(match)
+                
+                # Mask out this match
+                cv2.rectangle(
+                    result,
+                    max_loc,
+                    (max_loc[0] + w, max_loc[1] + h),
+                    0,
+                    -1
+                )
+            
+            if self.debug and matches:
+                self._save_debug_image(image, template, matches[0])
+            
             return matches
-
+            
         except Exception as e:
-            log_error_with_context(self.logger, e, "Finding all matches failed")
+            self.logger.error(f"Error finding all matches: {str(e)}")
             return []
 
-    def draw_match(self, image, match, color='red', text_color='white'):
-        """Draw match visualization on image with error handling."""
+    def _calculate_quality(self, region, template):
+        """Calculate various similarity metrics between region and template."""
         try:
-            draw = ImageDraw.Draw(image)
+            # Structural similarity (template matching)
+            ssim = cv2.matchTemplate(region, template, cv2.TM_CCOEFF_NORMED)[0][0]
             
-            # Draw rectangle around match
-            x = match['x'] - match['width'] // 2
-            y = match['y'] - match['height'] // 2
-            draw.rectangle(
-                [x, y, x + match['width'], y + match['height']],
-                outline=color,
-                width=2
-            )
+            # Edge similarity
+            edge1 = cv2.Canny(region, 100, 200)
+            edge2 = cv2.Canny(template, 100, 200)
+            edge_sim = cv2.matchTemplate(edge1, edge2, cv2.TM_CCOEFF_NORMED)[0][0]
             
-            # Draw confidence score
-            text = f"{match['confidence']:.4f}"
-            draw.text((x, y - 20), text, fill=text_color)
+            # Histogram similarity
+            hist1 = cv2.calcHist([region], [0], None, [256], [0, 256])
+            hist2 = cv2.calcHist([template], [0], None, [256], [0, 256])
+            hist_sim = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
             
-            # Draw center point
-            draw.ellipse(
-                [match['x'] - 2, match['y'] - 2, match['x'] + 2, match['y'] + 2],
-                fill=color
+            return MatchQuality(
+                structural_similarity=float(ssim),
+                edge_similarity=float(edge_sim),
+                histogram_similarity=float(hist_sim)
             )
             
         except Exception as e:
-            log_error_with_context(self.logger, e, "Drawing match visualization failed") 
+            self.logger.error(f"Error calculating quality metrics: {str(e)}")
+            return MatchQuality(0.0, 0.0, 0.0)
+
+    def _save_debug_image(self, image, template, match):
+        """Save debug visualization of the match."""
+        try:
+            # Create debug image
+            debug_img = image.copy()
+            h, w = template.shape[:2]
+            
+            # Draw rectangle around match
+            top_left = (match.center_x - w//2, match.center_y - h//2)
+            bottom_right = (match.center_x + w//2, match.center_y + h//2)
+            cv2.rectangle(debug_img, top_left, bottom_right, (0, 255, 0), 2)
+            
+            # Add confidence text
+            text = f"Conf: {match.confidence:.2f}"
+            cv2.putText(
+                debug_img,
+                text,
+                (top_left[0], top_left[1] - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 255, 0),
+                1
+            )
+            
+            # Save image
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            path = self.debug_dir / f'match_{timestamp}.png'
+            cv2.imwrite(str(path), debug_img)
+            
+        except Exception as e:
+            self.logger.error(f"Error saving debug image: {str(e)}") 

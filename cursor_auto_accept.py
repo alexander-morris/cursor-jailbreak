@@ -1,15 +1,14 @@
+import cv2
+import numpy as np
 import pyautogui
 import time
 import logging
-import sys
-import argparse
+import os
 from pathlib import Path
-from collections import deque
 from datetime import datetime, timedelta
+from collections import deque
 import mss
-import numpy as np
-import cv2
-from PIL import Image
+from error_recovery import ErrorRecoveryHandler
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +40,9 @@ class CursorAutoAccept:
             self.logger.info(f"Monitor {i}: {m['width']}x{m['height']} at ({m['left']}, {m['top']})")
             # Create monitor-specific calibration image path
             self._ensure_monitor_calibration(i)
+        
+        # Initialize error recovery handler
+        self.error_handler = ErrorRecoveryHandler()
 
     def get_monitors(self):
         """Get list of all monitors"""
@@ -52,38 +54,42 @@ class CursorAutoAccept:
         monitor_assets.mkdir(exist_ok=True)
         return monitor_assets / 'accept_button.png'
 
-    def capture_accept_button(self, specific_monitor=None):
-        """Capture the accept button image for one or all monitors"""
-        if specific_monitor is not None:
-            monitors_to_calibrate = [specific_monitor]
-        else:
-            monitors_to_calibrate = range(len(self.monitors))
-
-        for monitor_index in monitors_to_calibrate:
-            print(f"\n=== Cursor Auto Accept Calibration for Monitor {monitor_index} ===")
-            print(f"Monitor at position: ({self.monitors[monitor_index]['left']}, {self.monitors[monitor_index]['top']})")
-            print("1. Move Cursor to this monitor")
-            print("2. Trigger an AI prompt")
-            print("3. Move your mouse over the accept button")
-            print("4. Keep it there for 5 seconds")
-            print("5. Don't move until capture is complete")
-            print("\nStarting capture in 5 seconds...")
-            time.sleep(5)
+    def capture_accept_button(self):
+        """Capture accept button image for each monitor"""
+        print("\nCalibration Process:")
+        print("1. Position your cursor over an accept button")
+        print("2. Press Enter to capture the button image")
+        print("3. Repeat for each monitor\n")
+        
+        for i, monitor in enumerate(self.monitors):
+            print(f"\nCalibrating monitor {i}...")
+            input("Position cursor over accept button and press Enter...")
             
-            # Capture region around mouse
+            # Get cursor position
             x, y = pyautogui.position()
-            region = {"top": y-20, "left": x-50, "width": 100, "height": 40}
+            
+            # Calculate monitor-relative coordinates
+            rel_x = x - monitor["left"]
+            rel_y = y - monitor["top"]
+            
+            # Define capture region around cursor
+            region = {
+                "left": monitor["left"] + max(0, rel_x - 50),
+                "top": monitor["top"] + max(0, rel_y - 25),
+                "width": 100,
+                "height": 50
+            }
+            
+            # Capture region
             screenshot = self.sct.grab(region)
             
-            # Convert to PIL Image and save
-            img = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
-            calibration_file = self._ensure_monitor_calibration(monitor_index)
-            img.save(calibration_file)
-            print(f"\nCalibration complete for monitor {monitor_index}!")
-            print(f"Saved accept button image to {calibration_file}")
+            # Save calibration image
+            calibration_file = self._ensure_monitor_calibration(i)
+            mss.tools.to_png(screenshot.rgb, screenshot.size, output=str(calibration_file))
             
-            if specific_monitor is None:
-                input("\nPress Enter to continue to next monitor, or Ctrl+C to stop...")
+            print(f"Saved calibration image for monitor {i}")
+        
+        print("\nCalibration complete!")
 
     def can_click(self):
         """Check if we haven't exceeded rate limit"""
@@ -138,10 +144,17 @@ class CursorAutoAccept:
                         self.logger.info(f"Clicked accept button at ({screen_x}, {screen_y}) on monitor {monitor_index}")
                         pyautogui.moveTo(original_x, original_y)
                         return True
-                        
+
                 except Exception as e:
                     self.logger.error(f"Error processing monitor {monitor_index}: {str(e)}")
                     continue
+            
+            # Check for note icon and handle it
+            for monitor in self.monitors:
+                screenshot = self.sct.grab(monitor)
+                img = np.array(screenshot)
+                if self.error_handler.handle_error_case(img):
+                    return True
             
             return False
         except Exception as e:
@@ -183,19 +196,14 @@ class CursorAutoAccept:
             self.logger.error(f"Unexpected error: {e}")
             raise
 
-def main():
-    parser = argparse.ArgumentParser(description='Cursor Auto Accept Bot')
-    parser.add_argument('--capture', action='store_true', help='Force recalibration by capturing new accept button images')
-    parser.add_argument('--monitor', type=int, help='Calibrate a specific monitor (0-based index)')
-    args = parser.parse_args()
-
-    bot = CursorAutoAccept()
-    
-    if args.capture:
-        bot.capture_accept_button(args.monitor)
-        return
-
-    bot.run()
-
 if __name__ == "__main__":
-    main() 
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--capture", action="store_true", help="Run calibration process")
+    args = parser.parse_args()
+    
+    bot = CursorAutoAccept()
+    if args.capture:
+        bot.capture_accept_button()
+    else:
+        bot.run() 
