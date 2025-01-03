@@ -1,0 +1,30 @@
+{
+    "name": "cursor-auto-accept",
+    "version": "0.1.0",
+    "description": "Automatically accepts Cursor AI prompts",
+    "main": "extension.js",
+    "engines": {
+        "cursor": ">=0.1.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "cursor-auto-accept.toggle",
+                "title": "Toggle Auto Accept"
+            }
+        ],
+        "configuration": {
+            "title": "Cursor Auto Accept",
+            "properties": {
+                "cursorAutoAccept.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable/disable automatic acceptance of prompts"
+                }
+            }
+        }
+    }
+} 
