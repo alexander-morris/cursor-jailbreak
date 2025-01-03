@@ -8,6 +8,9 @@ There are some rules:
 5. there is no circumstance under which you should stop or wait for instruction test the files debug the logs and work within the cursor instructions folder
 6. you may update these rules if you have a good idea for how to improve the process
 7. efficiency is all that matters
+8. ALWAYS WRITE THE TESTS FIRST
+9. DO NOT WRITE TESTS IF YOU DON'T HAVE A PRODUCT DESCRIPTION
+10. Write the product description first, in the notes.md file, and then do something else until you are specifically asked to write tests for the new feature
 
 Please work to simulate this repo and ensure that you're testing everything this is a very complicated web3 product and there's a lot of things that can go wrong be sure to test anything and everything that comes to mind but only test one thing at a time and every time that you fix something save a new commit on git and then ensure that you are not losing your progress keep and keep notes in the Cursor instructions folder
 

@@ -1,67 +1,65 @@
-import os
 import logging
-import logging.handlers
-from datetime import datetime
+import os
+from pathlib import Path
 
-def setup_logging(component_name, debug_mode=False):
-    """Configure logging for the specified component following best practices."""
+def setup_logging(name, debug=False):
+    """Set up logging configuration"""
+    # Create logs directory
+    log_dir = Path('temp/logs')
+    log_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create logs directory if it doesn't exist
-    log_dir = os.path.join(os.path.dirname(__file__), 'logs')
-    os.makedirs(log_dir, exist_ok=True)
-
-    # Set up the logger
-    logger = logging.getLogger(component_name)
-    logger.setLevel(logging.DEBUG if debug_mode else logging.INFO)
-
-    # Create formatters
-    detailed_formatter = logging.Formatter(
-        '%(asctime)s - %(process)d - %(name)s - %(levelname)s - %(message)s'
-    )
-    console_formatter = logging.Formatter(
-        '%(asctime)s - %(levelname)s - %(message)s'
-    )
-
-    # File handler with rotation
-    log_file = os.path.join(log_dir, f'{component_name}.log')
-    file_handler = logging.handlers.RotatingFileHandler(
-        log_file,
-        maxBytes=10*1024*1024,  # 10MB
-        backupCount=5
-    )
-    file_handler.setFormatter(detailed_formatter)
-    file_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
-
+    # Configure logging
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+    
+    # File handler
+    file_handler = logging.FileHandler(log_dir / f'{name}.log')
+    file_handler.setLevel(logging.DEBUG if debug else logging.INFO)
+    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(file_formatter)
+    
     # Console handler
     console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter('%(message)s')
     console_handler.setFormatter(console_formatter)
-    console_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
-
+    
     # Add handlers
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
-
+    
     return logger
 
-def log_error_with_context(logger, error, context=None):
-    """Log an error with full context information."""
-    error_msg = f"Error: {str(error)}\nType: {type(error).__name__}"
-    if context:
-        error_msg += f"\nContext: {context}"
-    logger.error(error_msg, exc_info=True)
+def log_error_with_context(logger, error, message):
+    """Log error with context information"""
+    logger.error(f"{message}: {str(error)}")
+    if hasattr(error, "__traceback__"):
+        import traceback
+        logger.debug("".join(traceback.format_tb(error.__traceback__)))
 
-def log_match_result(logger, match_info, confidence, region=None):
-    """Log template matching results with coordinates and confidence."""
-    msg = f"Match found - Confidence: {confidence:.4f}"
-    if region:
-        msg += f" | Region: {region}"
-    logger.debug(msg)
-
-def save_debug_image(image, prefix, debug_dir='debug_output'):
-    """Save a debug image with timestamp."""
-    os.makedirs(debug_dir, exist_ok=True)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-    filename = f"{prefix}_{timestamp}.png"
-    path = os.path.join(debug_dir, filename)
-    image.save(path)
-    return path 
+def save_debug_image(image, name, debug_dir='temp/debug'):
+    """Save an image for debugging purposes"""
+    if not isinstance(debug_dir, Path):
+        debug_dir = Path(debug_dir)
+    debug_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save image with timestamp
+    from datetime import datetime
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    path = debug_dir / f'{name}_{timestamp}.png'
+    
+    try:
+        import cv2
+        import numpy as np
+        
+        # Convert PIL Image to cv2 format if needed
+        if not isinstance(image, np.ndarray):
+            image = np.array(image)
+        
+        # Save image
+        cv2.imwrite(str(path), image)
+        return str(path)
+    except Exception as e:
+        logger = logging.getLogger('debug')
+        log_error_with_context(logger, e, f"Failed to save debug image {name}")
+        return None 
