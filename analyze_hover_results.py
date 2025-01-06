@@ -116,18 +116,18 @@ def capture_button_states(index):
     print(f"Monitor-relative coordinates: ({rel_x}, {rel_y})")
     print(f"Using monitor: {target_monitor['width']}x{target_monitor['height']} at ({target_monitor['left']}, {target_monitor['top']})")
     
-    # Calculate region around cursor (100x20 pixels, centered on mouse)
+    # Calculate region around cursor (70x20 pixels, centered on mouse)
     template_region = {
-        "left": x - 50,  # 50px to the left of mouse
+        "left": x - 35,  # 35px to the left of mouse
         "top": y - 10,   # 10px above mouse
-        "width": 100,    # 50px to the right of mouse
+        "width": 70,     # 35px to the right of mouse
         "height": 20,    # 10px below mouse
         "mon": target_monitor["name"]
     }
     
     print(f"\nDebug: Template capture region:")
-    print(f"Left edge: {template_region['left']} (mouse X {x} - 50)")
-    print(f"Right edge: {template_region['left'] + template_region['width']} (left + 100)")
+    print(f"Left edge: {template_region['left']} (mouse X {x} - 35)")
+    print(f"Right edge: {template_region['left'] + template_region['width']} (left + 70)")
     print(f"Top edge: {template_region['top']} (mouse Y {y} - 10)")
     print(f"Bottom edge: {template_region['top'] + template_region['height']} (top + 20)")
     
@@ -179,79 +179,192 @@ def capture_button_states(index):
     
     return rel_x, rel_y, target_monitor
 
-def verify_click(self, x, y, pre_click_template, post_click_template):
-    """Verify that a click at (x,y) was successful by comparing pre and post click states"""
-    current_region = self.capture_region(x, y, self.template_width, self.template_height)
-    
-    # Verify click was successful by checking if button state changed
-    pre_click_similarity = cv2.matchTemplate(current_region, pre_click_template, cv2.TM_CCOEFF_NORMED)[0][0]
-    post_click_similarity = cv2.matchTemplate(current_region, post_click_template, cv2.TM_CCOEFF_NORMED)[0][0]
-
-    print(f"Pre-click similarity: {pre_click_similarity:.3f}")
-    print(f"Post-click similarity: {post_click_similarity:.3f}")
-
-    # Require post-click to be at least 10% different from pre-click
-    if abs(post_click_similarity - pre_click_similarity) < 0.1:
-        print("Click didn't change state, retrying...")
-        return False
-    
-    return True
-
-def click_button_with_verification(x, y, pre_click_img, post_click_img, monitor, max_attempts=3):
-    """Click button and verify the state change"""
-    # Calculate monitoring region (100x100 centered on click point)
-    monitor_region = {
-        "left": monitor["left"] + x - 50,
-        "top": monitor["top"] + y - 50,
-        "width": 100,
-        "height": 100,
-        "mon": monitor["name"]
-    }
-    
-    # Calculate template region (100x25 centered on potential match)
-    template_region = {
-        "left": monitor["left"] + x - 50,
-        "top": monitor["top"] + y - 12,
-        "width": 100,
-        "height": 25,
-        "mon": monitor["name"]
-    }
-    
-    for attempt in range(max_attempts):
-        print(f"\nClick attempt {attempt + 1}...")
+def verify_match(current_img, template_img, threshold=0.75):
+    """Verify if current image matches template using multiple methods"""
+    # Convert images to grayscale for more robust matching
+    if len(current_img.shape) == 3:
+        current_gray = cv2.cvtColor(current_img, cv2.COLOR_BGR2GRAY)
+    else:
+        current_gray = current_img
         
-        # Verify pre-click state
+    if len(template_img.shape) == 3:
+        template_gray = cv2.cvtColor(template_img, cv2.COLOR_BGR2GRAY)
+    else:
+        template_gray = template_img
+    
+    # Method 1: Template matching with normalized cross-correlation
+    result = cv2.matchTemplate(current_gray, template_gray, cv2.TM_CCORR_NORMED)
+    correlation = np.max(result)
+    
+    # Method 2: Mean squared error
+    if current_gray.shape == template_gray.shape:
+        mse = np.mean((current_gray - template_gray) ** 2)
+        mse_score = 1 - (mse / 255**2)  # Normalize to 0-1 range
+    else:
+        mse_score = 0
+    
+    # Method 3: Structural similarity (if images are same size)
+    if current_gray.shape == template_gray.shape:
+        try:
+            from skimage.metrics import structural_similarity as ssim
+            ssim_score = ssim(current_gray, template_gray)
+        except ImportError:
+            ssim_score = 0
+    else:
+        ssim_score = 0
+    
+    # Combine scores with adjusted weights
+    final_score = (0.6 * correlation + 0.3 * mse_score + 0.1 * ssim_score)  # Give more weight to correlation
+    
+    print(f"Verification scores:")
+    print(f"  Correlation: {correlation:.3f}")
+    print(f"  MSE Score: {mse_score:.3f}")
+    print(f"  SSIM Score: {ssim_score:.3f}")
+    print(f"  Final Score: {final_score:.3f}")
+    
+    return final_score >= threshold
+
+def analyze_button_images(run_time=30):  # 30 seconds
+    if not check_calibration_data():
+        print("No calibration data found. Running calibration...")
+        run_calibration()
+    else:
+        print("Using existing calibration data...")
+    
+    print("=" * 50)
+    
+    target_monitor = get_monitor()
+    if not target_monitor:
+        print("Error: Could not find monitor 2!")
+        return
+    
+    assets_dir = Path('assets/monitor_0')
+    pre_click_files = sorted(assets_dir.glob('button_*_pre.png'))
+    post_click_files = sorted(assets_dir.glob('button_*_post.png'))
+    coords_files = sorted(assets_dir.glob('click_coords_*.txt'))
+    
+    if not pre_click_files:
+        print("No button images found!")
+        return
+    
+    print(f"\nFound {len(pre_click_files)} button variations")
+    print("=" * 50)
+    
+    # Load all button templates and coordinates
+    buttons = []
+    for i, (pre_file, post_file, coords_file) in enumerate(zip(pre_click_files, post_click_files, coords_files), 1):
+        pre_img = cv2.imread(str(pre_file))
+        post_img = cv2.imread(str(post_file))
+        if pre_img is None or post_img is None:
+            print(f"Failed to load images for button {i}")
+            continue
+            
+        with open(coords_file) as f:
+            rel_x, rel_y = map(int, f.read().strip().split(','))
+            
+        if not validate_coordinates(rel_x, rel_y, target_monitor):
+            print(f"Warning: Button {i} coordinates ({rel_x}, {rel_y}) are outside monitor 2 bounds!")
+            continue
+            
+        buttons.append({
+            'pre_img': pre_img,
+            'post_img': post_img,
+            'calibration_x': rel_x,
+            'calibration_y': rel_y,
+            'button_num': i
+        })
+        print(f"Loaded Button {i} calibration position: ({rel_x}, {rel_y})")
+        print(f"Template size: {pre_img.shape[1]}x{pre_img.shape[0]}")
+    
+    if not buttons:
+        print("No valid buttons found within monitor 2 bounds!")
+        return
+    
+    print(f"\nLoaded {len(buttons)} valid buttons")
+    print("\nStarting continuous monitoring...")
+    print(f"Will run for {run_time} seconds")
+    print("=" * 50)
+    
+    start_time = time.time()
+    confidence_threshold = 0.85
+    
+    while time.time() - start_time < run_time:
+        # Take a full screenshot of monitor 2
+        monitor_region = {
+            "left": target_monitor["left"],
+            "top": target_monitor["top"],
+            "width": target_monitor["width"],
+            "height": target_monitor["height"],
+            "mon": target_monitor["name"]
+        }
+        
         with mss.mss() as sct:
-            current = np.array(sct.grab(template_region))
-            current_bgr = cv2.cvtColor(current, cv2.COLOR_BGRA2BGR)
-            result = cv2.matchTemplate(current_bgr, pre_click_img, cv2.TM_CCORR_NORMED)
-            pre_confidence = np.max(result)
-            print(f"Pre-click confidence: {pre_confidence:.3f}")
+            screenshot = np.array(sct.grab(monitor_region))
+        img_bgr = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
+        
+        for button in buttons:
+            print(f"\nSearching for Button {button['button_num']}...")
             
-        if pre_confidence < 0.75:  # More lenient threshold
-            print(f"Area doesn't match pre-click state")
-            return False
+            # Find matches for pre-click template
+            result = cv2.matchTemplate(img_bgr, button['pre_img'], cv2.TM_CCORR_NORMED)
+            locations = np.where(result >= confidence_threshold)
             
-        # Convert monitor-relative coordinates to screen coordinates for click
-        screen_x = monitor["left"] + x
-        screen_y = monitor["top"] + y
-        print(f"Clicking at screen coordinates: ({screen_x}, {screen_y})")
+            for pt in zip(*locations[::-1]):
+                # Calculate monitor-relative coordinates
+                template_x = pt[0]
+                template_y = pt[1]
+                
+                confidence = result[pt[1], pt[0]]
+                
+                print(f"\nFound potential match for Button {button['button_num']}:")
+                print(f"Position: ({template_x}, {template_y})")
+                print(f"Confidence: {confidence:.3f}")
+                
+                # Move to match position
+                screen_x = target_monitor["left"] + template_x
+                screen_y = target_monitor["top"] + template_y
+                print(f"Moving to position to verify match...")
+                pyautogui.moveTo(screen_x, screen_y, duration=0.5)
+                time.sleep(0.5)
+                
+                # Verify pre-click state
+                verify_region = {
+                    "left": screen_x,
+                    "top": screen_y,
+                    "width": button['pre_img'].shape[1],
+                    "height": button['pre_img'].shape[0],
+                    "mon": target_monitor["name"]
+                }
+                
+                with mss.mss() as sct:
+                    current = np.array(sct.grab(verify_region))
+                current_bgr = cv2.cvtColor(current, cv2.COLOR_BGRA2BGR)
+                
+                if verify_match(current_bgr, button['pre_img']):
+                    print("Pre-click match verified!")
+                    print("Clicking to verify post-click state...")
+                    
+                    # Click and wait briefly
+                    pyautogui.click()
+                    time.sleep(0.5)
+                    
+                    # Capture and verify post-click state
+                    with mss.mss() as sct:
+                        post_click = np.array(sct.grab(verify_region))
+                    post_click_bgr = cv2.cvtColor(post_click, cv2.COLOR_BGRA2BGR)
+                    
+                    if verify_match(post_click_bgr, button['post_img']):
+                        print("Post-click state verified!")
+                    else:
+                        print("Post-click state did not match template")
+                else:
+                    print("Pre-click match failed verification")
         
-        # Perform click
-        pyautogui.moveTo(screen_x, screen_y, duration=0.5)
-        time.sleep(0.5)
-        pyautogui.click()
-        
-        # Verify state change in monitoring region
-        if verify_click_state(monitor_region, pre_click_img, post_click_img, monitor):
-            print("Click verified - state changed successfully!")
-            return True
-        
-        print("Click didn't change state, retrying...")
-        time.sleep(2.0)  # Wait longer between retries
+        # Small delay before next iteration
+        time.sleep(1.0)
     
-    print("Failed to verify click after maximum attempts")
-    return False
+    print("\nAnalysis complete!")
+    print("=" * 50)
 
 def check_calibration_data():
     """Check if calibration data exists"""
@@ -403,200 +516,6 @@ def find_precise_button_location(template_img, target_monitor, current_x, curren
             'confidence': max_val
         }
     return None
-
-def analyze_button_images(run_time=180):  # 180 seconds = 3 minutes
-    if not check_calibration_data():
-        print("No calibration data found. Running calibration...")
-        run_calibration()
-    else:
-        print("Using existing calibration data...")
-    
-    print("=" * 50)
-    
-    target_monitor = get_monitor()
-    if not target_monitor:
-        print("Error: Could not find monitor 2!")
-        return
-    
-    assets_dir = Path('assets/monitor_0')
-    pre_click_files = sorted(assets_dir.glob('button_*_pre.png'))
-    post_click_files = sorted(assets_dir.glob('button_*_post.png'))
-    coords_files = sorted(assets_dir.glob('click_coords_*.txt'))
-    
-    if not pre_click_files:
-        print("No button images found!")
-        return
-    
-    print(f"\nFound {len(pre_click_files)} button variations")
-    print("=" * 50)
-    
-    # Load all button templates and coordinates
-    buttons = []
-    for i, (pre_file, post_file, coords_file) in enumerate(zip(pre_click_files, post_click_files, coords_files), 1):
-        pre_img = cv2.imread(str(pre_file))
-        post_img = cv2.imread(str(post_file))
-        if pre_img is None or post_img is None:
-            print(f"Failed to load images for button {i}")
-            continue
-            
-        with open(coords_file) as f:
-            rel_x, rel_y = map(int, f.read().strip().split(','))
-            
-        if not validate_coordinates(rel_x, rel_y, target_monitor):
-            print(f"Warning: Button {i} coordinates ({rel_x}, {rel_y}) are outside monitor 2 bounds!")
-            continue
-            
-        buttons.append({
-            'pre_img': pre_img,
-            'post_img': post_img,
-            'calibration_x': rel_x,
-            'calibration_y': rel_y,
-            'button_num': i
-        })
-        print(f"Loaded Button {i} calibration position: ({rel_x}, {rel_y})")
-    
-    if not buttons:
-        print("No valid buttons found within monitor 2 bounds!")
-        return
-    
-    print(f"\nLoaded {len(buttons)} valid buttons")
-    print("\nStarting continuous monitoring...")
-    print("Will keep searching until pre-click matches are found")
-    print("=" * 50)
-    
-    # Initial parameters
-    search_radius = 100  # Start with smaller radius
-    confidence_threshold = 0.85  # Start with high confidence
-    min_confidence = 0.75  # Don't go below this threshold
-    max_search_radius = 400  # Maximum search radius
-    
-    iteration = 0
-    matches_found = []
-    
-    while True:  # Keep searching until matches are found
-        iteration += 1
-        matches_found = []
-        
-        print(f"\nIteration {iteration}")
-        print(f"Search radius: {search_radius}px")
-        print(f"Confidence threshold: {confidence_threshold:.3f}")
-        print(f"Using monitor: {target_monitor['name']} at ({target_monitor['left']}, {target_monitor['top']})")
-        
-        for button in buttons:
-            # Define search region around calibration point
-            search_region = {
-                "left": target_monitor["left"] + button['calibration_x'] - search_radius,
-                "top": target_monitor["top"] + button['calibration_y'] - search_radius,
-                "width": search_radius * 2,
-                "height": search_radius * 2,
-                "mon": target_monitor["name"]
-            }
-            
-            print(f"\nSearching for Button {button['button_num']} around ({button['calibration_x']}, {button['calibration_y']})")
-            
-            # Capture current screen region
-            with mss.mss() as sct:
-                screenshot = np.array(sct.grab(search_region))
-            img_bgr = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
-            
-            # Find matches for pre-click template
-            result = cv2.matchTemplate(img_bgr, button['pre_img'], cv2.TM_CCOEFF_NORMED)
-            locations = np.where(result >= confidence_threshold)
-            
-            for pt in zip(*locations[::-1]):
-                # Calculate monitor-relative coordinates
-                monitor_rel_x = button['calibration_x'] - search_radius + pt[0]
-                monitor_rel_y = button['calibration_y'] - search_radius + pt[1]
-                
-                # Calculate distance from calibration point
-                distance = ((monitor_rel_x - button['calibration_x']) ** 2 + 
-                          (monitor_rel_y - button['calibration_y']) ** 2) ** 0.5
-                
-                confidence = result[pt[1], pt[0]]
-                
-                match = {
-                    'rel_x': monitor_rel_x,
-                    'rel_y': monitor_rel_y,
-                    'confidence': confidence,
-                    'distance': distance,
-                    'button_num': button['button_num'],
-                    'pre_img': button['pre_img'],
-                    'post_img': button['post_img']
-                }
-                
-                print(f"\nFound potential match for Button {button['button_num']} on {target_monitor['name']}:")
-                print(f"Monitor-relative position: ({monitor_rel_x}, {monitor_rel_y})")
-                print(f"Screen coordinates: ({target_monitor['left'] + monitor_rel_x}, {target_monitor['top'] + monitor_rel_y})")
-                print(f"Confidence: {confidence:.3f}")
-                print(f"Distance from calibration: {distance:.1f}px")
-                
-                # Move to match and verify
-                screen_x = target_monitor["left"] + monitor_rel_x
-                screen_y = target_monitor["top"] + monitor_rel_y
-                print(f"Moving to position to verify match...")
-                pyautogui.moveTo(screen_x, screen_y, duration=0.5)
-                time.sleep(0.5)
-                
-                # Capture current state and verify it matches pre-click
-                verify_region = {
-                    "left": screen_x - 50,
-                    "top": screen_y - 10,
-                    "width": 100,
-                    "height": 20,
-                    "mon": target_monitor["name"]
-                }
-                
-                with mss.mss() as sct:
-                    current = np.array(sct.grab(verify_region))
-                current_bgr = cv2.cvtColor(current, cv2.COLOR_BGRA2BGR)
-                verify_result = cv2.matchTemplate(current_bgr, button['pre_img'], cv2.TM_CCOEFF_NORMED)
-                verify_confidence = np.max(verify_result)
-                
-                print(f"Verification confidence: {verify_confidence:.3f}")
-                
-                if verify_confidence >= confidence_threshold:
-                    print("Match verified!")
-                    matches_found.append(match)
-                else:
-                    print("Match failed verification")
-        
-        if matches_found:
-            print(f"\nFound {len(matches_found)} verified matches!")
-            print("Moving between matches to verify positions...")
-            
-            for match in matches_found:
-                screen_x = target_monitor["left"] + match['rel_x']
-                screen_y = target_monitor["top"] + match['rel_y']
-                print(f"\nMoving to Button {match['button_num']} at ({screen_x}, {screen_y})")
-                pyautogui.moveTo(screen_x, screen_y, duration=0.5)
-                time.sleep(1.0)
-            
-            print("\nAll matches verified!")
-            break  # Exit the loop since we found matches
-            
-        else:
-            print("\nNo verified matches found, adjusting search parameters...")
-            
-            # Adjust search parameters
-            if search_radius < max_search_radius:
-                search_radius += 50
-                print(f"Increased search radius to {search_radius}px")
-            elif confidence_threshold > min_confidence:
-                confidence_threshold = max(min_confidence, confidence_threshold - 0.02)
-                print(f"Lowered confidence threshold to {confidence_threshold:.3f}")
-                search_radius = 100  # Reset search radius when lowering confidence
-            else:
-                print("\nReached minimum confidence threshold and maximum search radius")
-                print("Starting over with initial parameters...")
-                search_radius = 100
-                confidence_threshold = 0.85
-            
-            # Small delay before next iteration
-            time.sleep(1.0)
-    
-    print("\nAnalysis complete - found all pre-click matches!")
-    print("=" * 50)
-    return matches_found
 
 if __name__ == "__main__":
     analyze_button_images() 

@@ -76,6 +76,17 @@ class MainWindow:
         )
         self.calibrate_button.pack(side=tk.LEFT, padx=5)
         
+        # Add submit calibration button (hidden by default)
+        self.submit_button = tk.Button(
+            self.control_frame,
+            text="✓",  # Checkmark symbol
+            command=self.submit_calibration,
+            bg='#004999',
+            fg='white',
+            font=('Arial', 14),
+            width=2
+        )
+        
         # Add status label
         self.status_label = tk.Label(
             self.control_frame,
@@ -105,6 +116,11 @@ class MainWindow:
         self.control_frame.bind('<Button-1>', self.start_drag)
         self.control_frame.bind('<B1-Motion>', self.on_drag)
         
+        # Calibration state
+        self.calibrating = False
+        self.button_states = []
+        self.capturing = False
+        
     def start_drag(self, event):
         """Start window drag"""
         self.x = event.x
@@ -118,17 +134,6 @@ class MainWindow:
         y = self.root.winfo_y() + deltay
         self.root.geometry(f"+{x}+{y}")
         
-    def toggle(self):
-        """Toggle play/pause state"""
-        self.is_playing = not self.is_playing
-        if self.is_playing:
-            self.toggle_button.config(text="⏸")  # Pause symbol
-            self.status_label.config(text="Running")
-        else:
-            self.toggle_button.config(text="▶")  # Play symbol
-            self.status_label.config(text="Stopped")
-        self.toggle_callback()
-        
     def add_log(self, message):
         """Add a log message"""
         self.log_text.insert(tk.END, message + '\n')
@@ -136,7 +141,256 @@ class MainWindow:
         # Keep only last 50 lines
         if float(self.log_text.index('end-1c').split('.')[0]) > 50:
             self.log_text.delete('1.0', '2.0')
+        self.root.update()
         
+    def clear_log(self):
+        """Clear all log text"""
+        self.log_text.delete('1.0', tk.END)
+        self.root.update()
+        
+    def start_capture(self, sct):
+        """Start capturing a button"""
+        if self.capturing:
+            return
+            
+        # Clear any pending after callbacks
+        for after_id in self.root.tk.call('after', 'info'):
+            self.root.after_cancel(after_id)
+            
+        self.capturing = True
+        try:
+            # Clear previous text
+            self.clear_log()
+            
+            # Start hover capture countdown
+            self.add_log("=== Capturing Accept Button ===")
+            self.add_log("1. Move your cursor over the center of the button")
+            self.add_log("2. Keep the cursor still")
+            self.add_log("3. Wait for hover state capture")
+            self.add_log("4. Click when prompted")
+            self.add_log("5. Keep cursor still after clicking")
+            self.add_log("\nStarting in 5 seconds...")
+            
+            def countdown_hover(count):
+                if count > 0:
+                    self.add_log(f"Capturing hover state in {count}...")
+                    self.root.after(1000, lambda: countdown_hover(count - 1))
+                else:
+                    capture_hover()
+            
+            def capture_hover():
+                # Capture hover state
+                hover_x, hover_y = pyautogui.position()
+                hover_region = {"top": hover_y-20, "left": hover_x-40, "width": 80, "height": 40}
+                
+                # Take multiple samples to ensure quality
+                samples = []
+                for i in range(3):
+                    hover_screenshot = sct.grab(hover_region)
+                    hover_img = Image.frombytes("RGB", hover_screenshot.size, hover_screenshot.rgb)
+                    hover_np = np.array(hover_img)
+                    hover_bgr = cv2.cvtColor(hover_np, cv2.COLOR_RGB2BGR)
+                    
+                    if hover_bgr.shape[0] != 40 or hover_bgr.shape[1] != 80:
+                        hover_bgr = cv2.rotate(hover_bgr, cv2.ROTATE_90_CLOCKWISE)
+                    
+                    samples.append(hover_bgr)
+                    time.sleep(0.1)
+                
+                # Use the middle sample to avoid any transition frames
+                hover_bgr = samples[1]
+                
+                self.add_log("\nHover state captured!")
+                self.add_log("Click the button now...")
+                
+                # Start click capture after a longer delay
+                self.root.after(3000, lambda: countdown_click(3))
+                
+                return hover_x, hover_y, hover_bgr, hover_region
+            
+            def countdown_click(count):
+                if count > 0:
+                    self.add_log(f"Capturing after-click state in {count}...")
+                    self.root.after(1000, lambda: countdown_click(count - 1))
+                else:
+                    capture_click()
+            
+            def capture_click():
+                try:
+                    # Store hover state
+                    hover_x, hover_y, hover_bgr, hover_region = capture_hover()
+                    
+                    # Click the button
+                    pyautogui.click()
+                    time.sleep(0.5)  # Wait for button to disappear
+                    
+                    # Take multiple samples of after state
+                    samples = []
+                    for i in range(3):
+                        after_screenshot = sct.grab(hover_region)
+                        after_img = Image.frombytes("RGB", after_screenshot.size, after_screenshot.rgb)
+                        after_np = np.array(after_img)
+                        after_bgr = cv2.cvtColor(after_np, cv2.COLOR_RGB2BGR)
+                        
+                        if after_bgr.shape[0] != 40 or after_bgr.shape[1] != 80:
+                            after_bgr = cv2.rotate(after_bgr, cv2.ROTATE_90_CLOCKWISE)
+                        
+                        samples.append(after_bgr)
+                        time.sleep(0.1)
+                    
+                    # Use the last sample to ensure button has disappeared
+                    after_bgr = samples[-1]
+                    
+                    # Verify the samples are consistent
+                    diffs = []
+                    for i in range(len(samples)-1):
+                        diff = np.sum(np.abs(samples[i] - samples[i+1]))
+                        diffs.append(diff)
+                    
+                    if max(diffs) > 1000:
+                        self.add_log("\nWarning: Unstable after-click state")
+                        self.add_log("Please try calibration again")
+                        self.capturing = False
+                        return
+                    
+                    # Store button state
+                    self.button_states = [{
+                        'hover_img': hover_bgr,
+                        'hover_x': hover_x,
+                        'hover_y': hover_y,
+                        'after_img': after_bgr,
+                        'click_x': hover_x,
+                        'click_y': hover_y
+                    }]
+                    
+                    self.add_log("\nButton captured successfully!")
+                    self.add_log("\nPress checkmark to save and start the bot.")
+                    
+                    # Done capturing
+                    self.capturing = False
+                    
+                except Exception as e:
+                    self.add_log(f"\nError during click capture: {str(e)}")
+                    self.capturing = False
+            
+            # Start the hover countdown
+            countdown_hover(5)
+            
+        except Exception as e:
+            self.add_log(f"\nError during capture: {str(e)}")
+            self.capturing = False
+            
+    def finish_calibration(self, assets_dir):
+        """Save calibration data"""
+        if not self.button_states:
+            self.add_log("\nNo button captured! Please capture the button first.")
+            return False
+        
+        try:
+            # First clean up any existing calibration files
+            monitor_assets = assets_dir / "monitor_0"
+            monitor_assets.mkdir(exist_ok=True)
+            for file in monitor_assets.glob("*"):
+                file.unlink()
+            
+            # Save button states
+            hover_file = monitor_assets / 'accept_button.png'
+            after_file = monitor_assets / 'accept_after.png'
+            coords_file = monitor_assets / 'click_coords.txt'
+            
+            state = self.button_states[0]
+            cv2.imwrite(str(hover_file), state['hover_img'])
+            cv2.imwrite(str(after_file), state['after_img'])
+            
+            # Save coordinates
+            with open(coords_file, 'w') as f:
+                f.write(f"{state['hover_x']},{state['hover_y']}")
+            
+            self.add_log("\nCalibration complete! Bot will start running.")
+            self.status_label.config(text="Ready")
+            
+            # Reset calibration state
+            self.calibrating = False
+            self.button_states = []
+            self.capturing = False
+            
+            return True
+            
+        except Exception as e:
+            self.add_log(f"\nError saving calibration: {str(e)}")
+            return False
+        
+    def toggle(self):
+        """Toggle play/pause state"""
+        if self.calibrating and not self.capturing:
+            return  # Ignore play button during calibration
+            
+        # Normal play/pause toggle
+        self.is_playing = not self.is_playing
+        if self.is_playing:
+            self.toggle_button.config(text="⏸")  # Pause symbol
+            self.status_label.config(text="Running")
+            # Clear any pending after callbacks
+            for after_id in self.root.tk.call('after', 'info'):
+                self.root.after_cancel(after_id)
+        else:
+            self.toggle_button.config(text="▶")  # Play symbol
+            self.status_label.config(text="Stopped")
+        self.toggle_callback()
+        
+    def calibrate(self):
+        """Start calibration"""
+        if self.capturing:
+            return
+            
+        if not self.calibrating:
+            # Starting new calibration
+            self.calibrating = True
+            self.button_states = []
+            self.is_playing = False
+            self.toggle_button.config(text="▶")
+            self.status_label.config(text="Calibrating...")
+            
+            # Show submit button
+            self.submit_button.pack(side=tk.LEFT, padx=5)
+            
+            # Show initial instructions
+            self.clear_log()
+            self.add_log("=== Cursor Auto Accept Calibration ===\n")
+            self.add_log("We will calibrate by capturing multiple buttons.")
+            self.add_log("For each button:")
+            self.add_log("1. Move your cursor over the button")
+            self.add_log("2. Wait for hover state capture (5 seconds)")
+            self.add_log("3. When prompted, click the button")
+            self.add_log("4. Wait for click state capture (3 seconds)")
+            self.add_log("\nPress gear button to start capturing a button.")
+            self.add_log("Press checkmark when done to save calibration.")
+            
+        else:
+            # Already calibrating, start next capture
+            self.calibrate_callback()
+            
+    def submit_calibration(self):
+        """Submit calibration and start the bot"""
+        if not self.calibrating or self.capturing:
+            return
+            
+        # Hide submit button
+        self.submit_button.pack_forget()
+        
+        # Save calibration and start bot
+        assets_dir = self.toggle_callback()
+        if assets_dir and self.finish_calibration(assets_dir):
+            # Calibration saved successfully, now start the bot
+            self.is_playing = True
+            self.toggle_button.config(text="⏸")  # Pause symbol
+            self.status_label.config(text="Running")
+            # Clear any pending after callbacks
+            for after_id in self.root.tk.call('after', 'info'):
+                self.root.after_cancel(after_id)
+            # Start the bot without calling toggle_callback again
+            self.toggle_callback()
+            
     def show(self):
         """Show the window"""
         self.root.mainloop()
@@ -144,14 +398,40 @@ class MainWindow:
     def close(self):
         """Close the window"""
         self.root.destroy()
+
+    def start_calibrate_hold(self, event):
+        """Start timing the calibrate button hold"""
+        self.hold_start_time = time.time()
+        # Schedule the hold check
+        self.hold_after_id = self.root.after(1000, self.check_calibrate_hold)
         
-    def calibrate(self):
-        """Start calibration"""
-        # Reset play button state
-        self.is_playing = False
-        self.toggle_button.config(text="▶")
-        self.status_label.config(text="Calibrating...")
-        self.calibrate_callback()
+    def stop_calibrate_hold(self, event):
+        """Handle calibrate button release"""
+        if self.hold_after_id:
+            self.root.after_cancel(self.hold_after_id)
+            self.hold_after_id = None
+        
+        # If released before 1 second, treat as normal click
+        if self.hold_start_time and time.time() - self.hold_start_time < 1.0:
+            if self.calibrating and not self.capturing:
+                # Start next capture
+                self.calibrate_callback()
+            else:
+                # Start calibration
+                self.calibrate()
+                
+        self.hold_start_time = None
+        
+    def check_calibrate_hold(self):
+        """Check if calibrate button has been held long enough"""
+        if self.hold_start_time and time.time() - self.hold_start_time >= 1.0:
+            if self.calibrating and not self.capturing:
+                # Stop calibration
+                self.calibrating = False
+                self.status_label.config(text="Ready")
+                self.add_log("\nCalibration stopped.")
+                self.button_states = []
+            self.hold_start_time = None
 
 class StatusWindow:
     def __init__(self, message, duration=2.0):
@@ -251,6 +531,12 @@ class CalibrationWindow:
             self.text.insert(tk.END, message + '\n')
             self.text.see(tk.END)  # Auto-scroll to bottom
             self.root.update()  # Force update UI
+            
+    def clear_text(self):
+        """Clear all text"""
+        if not self.is_closing:
+            self.text.delete('1.0', tk.END)
+            self.root.update()
         
     def close(self):
         """Close the window"""
@@ -263,6 +549,16 @@ class CalibrationWindow:
         """Show the window"""
         if not self.is_closing:
             self.root.mainloop()
+
+    def update(self):
+        """Force update the window"""
+        if not self.is_closing:
+            self.root.update()
+
+    def after(self, ms, func):
+        """Schedule a function to run after ms milliseconds"""
+        if not self.is_closing:
+            self.root.after(ms, func)
 
 class CursorAutoAccept:
     def __init__(self):
@@ -305,73 +601,14 @@ class CursorAutoAccept:
             self.running = False
             self.logger.info("Bot stopped for calibration")
             
-        self.calibrating = True
-        self.calibration_window = CalibrationWindow()
-        
-        def run_calibration():
-            self.calibration_window.add_text("=== Cursor Auto Accept Calibration ===\n")
-            self.calibration_window.add_text("1. Move your cursor to the monitor you want to calibrate")
-            self.calibration_window.add_text("2. Trigger an AI prompt")
-            self.calibration_window.add_text("3. Move your mouse over the center of the accept button")
-            self.calibration_window.add_text("4. Keep it there for 5 seconds")
-            self.calibration_window.add_text("5. Don't move until capture is complete")
-            self.calibration_window.add_text("\nStarting capture in 5 seconds...")
-            
-            self.calibration_window.root.update()  # Force update
-            time.sleep(5)
-            
-            try:
-                # Get mouse position
-                click_x, click_y = pyautogui.position()
-                
-                # Capture region around mouse with larger area
-                region = {"top": click_y-30, "left": click_x-75, "width": 150, "height": 60}
-                screenshot = self.sct.grab(region)
-                
-                # Convert to PIL Image and save
-                img = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
-                
-                # Save calibration files
-                monitor_assets = self.assets_dir / "monitor_0"
-                monitor_assets.mkdir(exist_ok=True)
-                calibration_file = monitor_assets / 'accept_button.png'
-                coords_file = monitor_assets / 'click_coords.txt'
-                
-                img.save(calibration_file)
-                with open(coords_file, 'w') as f:
-                    f.write(f"{75},{30}")  # Center of capture region
-                    
-                self.calibration_window.add_text("\nCalibration complete!")
-                self.calibration_window.add_text(f"Saved accept button image to {calibration_file}")
-                self.calibration_window.add_text("\nWindow will close in 3 seconds...")
-                
-                # Update main window status
-                if self.main_window:
-                    self.main_window.status_label.config(text="Ready")
-                
-                # Schedule window close
-                self.calibration_window.root.after(3000, self.calibration_window.close)
-                
-            except Exception as e:
-                self.calibration_window.add_text(f"\nError during calibration: {str(e)}")
-                self.calibration_window.add_text("Please try again.")
-                # Update main window status
-                if self.main_window:
-                    self.main_window.status_label.config(text="Calibration Failed")
-            
-            self.calibrating = False
-            
-        # Start calibration in a non-daemon thread
-        calibration_thread = Thread(target=run_calibration)
-        calibration_thread.start()
-        
-        # Show calibration window in main thread
-        self.calibration_window.show()
+        # Start capture in main window
+        self.main_window.start_capture(self.sct)
             
     def toggle_bot(self):
         """Toggle bot on/off"""
-        if self.calibrating:
-            return
+        if self.main_window.calibrating and not self.main_window.capturing:
+            # Return assets directory for saving calibration
+            return self.assets_dir
             
         if self.running:
             self.stop_event.set()
@@ -382,23 +619,27 @@ class CursorAutoAccept:
         else:
             # Check if calibration exists
             monitor_assets = self.assets_dir / "monitor_0"
-            calibration_file = monitor_assets / 'accept_button.png'
+            hover_file = monitor_assets / 'accept_button.png'
+            after_file = monitor_assets / 'accept_after.png'
             coords_file = monitor_assets / 'click_coords.txt'
             
-            if not calibration_file.exists() or not coords_file.exists():
+            if not all(f.exists() for f in [hover_file, after_file, coords_file]):
                 # Reset play button since we're going to calibrate
                 if self.main_window:
                     self.main_window.is_playing = False
                     self.main_window.toggle_button.config(text="▶")
                     self.main_window.status_label.config(text="Calibrating...")
-                self.start_calibration()
+                    self.main_window.calibrating = True
+                    self.main_window.calibrate()  # Show initial instructions
                 return
                 
+            # Start the bot
             self.stop_event.clear()
             self.running = True
             self.logger.info("Bot started via control window")
             if self.main_window:
                 self.main_window.add_log("Bot started")
+                self.main_window.calibrating = False  # Ensure calibration state is cleared
             # Start bot in new thread
             Thread(target=self.run_bot, daemon=True).start()
             
@@ -431,7 +672,16 @@ class CursorAutoAccept:
 
     def get_monitors(self):
         """Get list of all monitors"""
-        monitors = self.sct.monitors[1:]  # Skip the "all monitors" monitor
+        monitors = []
+        for m in self.sct.monitors[1:]:  # Skip the "all monitors" monitor
+            # Adjust monitor coordinates to be relative to primary monitor
+            monitors.append({
+                "left": m["left"],
+                "top": m["top"],
+                "width": m["width"],
+                "height": m["height"]
+            })
+            self.logger.info(f"Monitor found: {m['width']}x{m['height']} at ({m['left']}, {m['top']})")
         # Only use the first monitor
         return [monitors[0]]
 
@@ -458,23 +708,33 @@ class CursorAutoAccept:
         # Get mouse position - this will be our click point
         click_x, click_y = pyautogui.position()
         
-        # Capture region around mouse with larger area
-        region = {"top": click_y-30, "left": click_x-75, "width": 150, "height": 60}
+        # Capture region around mouse with original working size
+        region = {"top": click_y-20, "left": click_x-40, "width": 80, "height": 40}
         screenshot = self.sct.grab(region)
         
-        # Convert to PIL Image and save
+        # Convert to PIL Image
         img = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
         
-        # Save both the template and click coordinates
+        # Convert to OpenCV format
+        img_np = np.array(img)
+        img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+        
+        # Ensure template is in correct orientation (80x40)
+        if img_bgr.shape[0] != 40 or img_bgr.shape[1] != 80:
+            self.logger.warning(f"Template has wrong dimensions: {img_bgr.shape}, rotating...")
+            img_bgr = cv2.rotate(img_bgr, cv2.ROTATE_90_CLOCKWISE)
+            self.logger.info(f"New template dimensions: {img_bgr.shape}")
+        
+        # Save template
         monitor_assets = self.assets_dir / f"monitor_{monitor_index}"
         monitor_assets.mkdir(exist_ok=True)
         calibration_file = monitor_assets / 'accept_button.png'
         coords_file = monitor_assets / 'click_coords.txt'
         
-        img.save(calibration_file)
-        # Save relative click coordinates
+        cv2.imwrite(str(calibration_file), img_bgr)  # Save in BGR format
+        # Save click offset from template top-left
         with open(coords_file, 'w') as f:
-            f.write(f"{75},{30}")  # Center of the capture region
+            f.write(f"40,20")  # Center of 80x40 region
             
         print(f"\nCalibration complete for monitor {monitor_index}!")
         print(f"Saved accept button image to {calibration_file}")
@@ -490,71 +750,70 @@ class CursorAutoAccept:
 
     def monitor_click_area(self, x, y, monitor, timeout=20):
         """Monitor the area around a click for changes"""
-        region = {
-            "left": max(0, x - 100),
-            "top": max(0, y - 100),
-            "width": 200,
-            "height": 200
-        }
+        # Define the button region (same size as calibration)
+        button_region = {"top": y-20, "left": x-40, "width": 80, "height": 40}
         
-        # Get initial screenshot
-        initial = np.array(self.sct.grab(region))
+        # Get initial screenshot of button area
+        initial = np.array(self.sct.grab(button_region))
         time.sleep(0.2)  # Small delay to let UI start changing
         
         start_time = time.time()
         last_change_time = start_time
-        prev_frame = initial
-        textarea_clicked = False
         
-        while time.time() - start_time < timeout:
-            current = np.array(self.sct.grab(region))
-            # Calculate pixel differences
-            diff = np.sum(np.abs(current - prev_frame))
-            
-            if diff > 1000:  # Threshold for significant change
-                last_change_time = time.time()
-                if textarea_clicked:
-                    message = "Detected UI change after textarea click"
+        message = "Monitoring for button disappearance..."
+        self.logger.info(message)
+        if self.main_window:
+            self.main_window.add_log(message)
+        
+        # Load the hover template to check if button is still there
+        monitor_assets = self.assets_dir / "monitor_0"
+        hover_file = monitor_assets / 'accept_button.png'
+        
+        if hover_file.exists():
+            hover_template = cv2.imread(str(hover_file))
+            if hover_template is not None:
+                # Ensure template is in correct orientation
+                if hover_template.shape[0] != 40 or hover_template.shape[1] != 80:
+                    hover_template = cv2.rotate(hover_template, cv2.ROTATE_90_CLOCKWISE)
+                
+                while time.time() - start_time < timeout:
+                    # Capture current state of button area
+                    current = np.array(self.sct.grab(button_region))
+                    current_bgr = cv2.cvtColor(current, cv2.COLOR_BGRA2BGR)
+                    
+                    # Check if button is still visible
+                    result = cv2.matchTemplate(current_bgr, hover_template, cv2.TM_CCOEFF_NORMED)
+                    confidence = result.max()
+                    
+                    message = f"Button visibility confidence: {confidence:.3f}"
                     self.logger.info(message)
                     if self.main_window:
                         self.main_window.add_log(message)
-                    return
-            elif time.time() - last_change_time > 15.0 and not textarea_clicked:  # No changes for 15 seconds
-                message = "Area stalled for 15s, attempting textarea click..."
-                self.logger.info(message)
-                if self.main_window:
-                    self.main_window.add_log(message)
-                # Click the textarea (200px left, 68px down from original click)
-                textarea_x = x - 200
-                textarea_y = y + 68
-                pyautogui.moveTo(textarea_x, textarea_y)
-                pyautogui.click()
-                textarea_clicked = True
-                last_change_time = time.time()  # Reset timer to check for UI response
-            elif time.time() - last_change_time > 1.0 and not textarea_clicked:  # No changes for 1 second
-                message = "Click area appears stalled, attempting unstick..."
-                self.logger.info(message)
-                if self.main_window:
-                    self.main_window.add_log(message)
-                # Move mouse slightly and click again
-                pyautogui.moveTo(x + 5, y + 5)
-                pyautogui.click()
-                pyautogui.moveTo(x, y)
-                pyautogui.click()
-                last_change_time = time.time()  # Reset timer
-                
-            prev_frame = current
-            time.sleep(0.1)
+                    
+                    if confidence < 0.6:  # Button is no longer visible
+                        message = "Button appears gone (low confidence)"
+                        self.logger.info(message)
+                        if self.main_window:
+                            self.main_window.add_log(message)
+                        return True
+                    
+                    elif time.time() - last_change_time > 1.0:  # No changes for 1 second
+                        message = "Button still visible, clicking again..."
+                        self.logger.info(message)
+                        if self.main_window:
+                            self.main_window.add_log(message)
+                        pyautogui.click(x, y)
+                        time.sleep(0.1)
+                        pyautogui.click(x, y)
+                        last_change_time = time.time()
+                    
+                    time.sleep(0.1)
         
-        if textarea_clicked:
-            message = "No UI changes detected after textarea click"
-            self.logger.warning(message)
-            if self.main_window:
-                self.main_window.add_log(message)
-        message = "Area monitoring timed out"
+        message = "Monitoring timed out"
         self.logger.warning(message)
         if self.main_window:
             self.main_window.add_log(message)
+        return False
 
     def find_and_click_accept(self):
         if not self.can_click():
@@ -571,124 +830,163 @@ class CursorAutoAccept:
             # Only check monitor 0
             monitor = self.monitors[0]
             monitor_assets = self.assets_dir / "monitor_0"
-            calibration_file = monitor_assets / 'accept_button.png'
+            
+            # Log monitor info for debugging
+            self.logger.info(f"Using monitor: {monitor['width']}x{monitor['height']} at ({monitor['left']}, {monitor['top']})")
+            
+            # Check for calibration files
+            hover_file = monitor_assets / 'accept_button.png'
+            after_file = monitor_assets / 'accept_after.png'
             coords_file = monitor_assets / 'click_coords.txt'
             
-            # Log monitor info
-            message = f"Searching monitor: {monitor['width']}x{monitor['height']} at ({monitor['left']}, {monitor['top']})"
-            self.logger.info(message)
-            if self.main_window:
-                self.main_window.add_log(message)
-            
-            if not calibration_file.exists() or not coords_file.exists():
-                message = "No calibration found. Please run with --capture flag first."
+            if not all(f.exists() for f in [hover_file, after_file, coords_file]):
+                message = "Missing calibration files. Please run calibration first."
                 self.logger.warning(message)
                 if self.main_window:
                     self.main_window.add_log(message)
                 return False
-
-            try:
-                # Load the template image and click coordinates
-                template = cv2.imread(str(calibration_file))
-                if template is None:
-                    message = f"Failed to load template from {calibration_file}"
-                    self.logger.error(message)
-                    if self.main_window:
-                        self.main_window.add_log(message)
-                    return False
-                
-                # Log template info
-                template_h, template_w = template.shape[:2]
-                message = f"Template size: {template_w}x{template_h}"
-                self.logger.info(message)
-                if self.main_window:
-                    self.main_window.add_log(message)
-                    
-                with open(coords_file, 'r') as f:
-                    rel_x, rel_y = map(int, f.read().strip().split(','))
-                message = f"Click offset: ({rel_x}, {rel_y})"
-                self.logger.info(message)
-                if self.main_window:
-                    self.main_window.add_log(message)
-                
-                # Capture monitor
-                screenshot = self.sct.grab(monitor)
-                # Convert to CV2 format
-                img = np.array(screenshot)
-                img_bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-                
-                # Log screenshot info
-                img_h, img_w = img_bgr.shape[:2]
-                message = f"Screenshot size: {img_w}x{img_h}"
-                self.logger.info(message)
-                if self.main_window:
-                    self.main_window.add_log(message)
-                
-                # Template matching with lower confidence threshold
-                result = cv2.matchTemplate(img_bgr, template, cv2.TM_CCOEFF_NORMED)
-                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-                
-                # Debug log the confidence value and location
-                message = f"Best match at ({max_loc[0]}, {max_loc[1]}) with confidence: {max_val:.3f}"
-                self.logger.info(message)
-                if self.main_window:
-                    self.main_window.add_log(message)
-                
-                # Save debug images
-                debug_dir = Path('debug')
-                debug_dir.mkdir(exist_ok=True)
-                
-                # Save the template
-                cv2.imwrite(str(debug_dir / 'template.png'), template)
-                
-                # Save the full screenshot
-                cv2.imwrite(str(debug_dir / 'full_screen.png'), img_bgr)
-                
-                # Save the region where match was found
-                h, w = template.shape[:2]
-                x, y = max_loc
-                if x >= 0 and y >= 0 and x + w <= img_w and y + h <= img_h:
-                    match_region = img_bgr[y:y+h, x:x+w]
-                    cv2.imwrite(str(debug_dir / 'match_region.png'), match_region)
-                    message = f"Saved debug images to {debug_dir}"
-                    self.logger.info(message)
-                    if self.main_window:
-                        self.main_window.add_log(message)
-                
-                if max_val >= 0.7:  # Lower confidence threshold
-                    # Calculate absolute screen coordinates using saved click point
-                    screen_x = monitor["left"] + max_loc[0] + rel_x
-                    screen_y = monitor["top"] + max_loc[1] + rel_y
-                    
-                    message = f"Clicking at absolute coordinates: ({screen_x}, {screen_y})"
-                    self.logger.info(message)
-                    if self.main_window:
-                        self.main_window.add_log(message)
-                    
-                    # Click and restore cursor
-                    pyautogui.click(screen_x, screen_y)
-                    pyautogui.click(screen_x, screen_y)  # Double click to ensure it registers
-                    self.click_history.append(datetime.now())
-                    message = f"Clicked accept button at ({screen_x}, {screen_y}) with confidence {max_val:.2f}"
-                    self.logger.info(message)
-                    if self.main_window:
-                        self.main_window.add_log(message)
-                    
-                    # Monitor the click area for changes
-                    self.monitor_click_area(screen_x, screen_y, monitor)
-                    
-                    # Restore original cursor position
-                    pyautogui.moveTo(original_x, original_y)
-                    return True
-                    
-            except Exception as e:
-                message = f"Error processing monitor: {str(e)}"
+            
+            # Load template
+            hover_template = cv2.imread(str(hover_file))
+            if hover_template is None:
+                message = "Failed to load template"
                 self.logger.error(message)
                 if self.main_window:
                     self.main_window.add_log(message)
                 return False
             
-            return False
+            # Ensure template is in correct orientation (80x40)
+            if hover_template.shape[0] != 40 or hover_template.shape[1] != 80:
+                hover_template = cv2.rotate(hover_template, cv2.ROTATE_90_CLOCKWISE)
+            
+            try:
+                # Capture monitor
+                screenshot = self.sct.grab(monitor)
+                img = np.array(screenshot)
+                img_bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+                
+                # Try different matching methods
+                methods = [
+                    (cv2.TM_CCOEFF_NORMED, 0.6),  # Method, threshold
+                    (cv2.TM_CCORR_NORMED, 0.8),
+                    (cv2.TM_SQDIFF_NORMED, 0.2)  # For SQDIFF, lower is better
+                ]
+                
+                best_match = None
+                best_confidence = -1
+                
+                for method, threshold in methods:
+                    # Match against hover template
+                    result = cv2.matchTemplate(img_bgr, hover_template, method)
+                    
+                    if method == cv2.TM_SQDIFF_NORMED:
+                        # For SQDIFF, we want minimum value
+                        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                        confidence = 1.0 - min_val  # Convert to confidence
+                        loc = min_loc
+                    else:
+                        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                        confidence = max_val
+                        loc = max_loc
+                    
+                    message = f"Method {method} confidence: {confidence:.3f}"
+                    self.logger.info(message)
+                    if self.main_window:
+                        self.main_window.add_log(message)
+                    
+                    # Check if this match is better
+                    if method == cv2.TM_SQDIFF_NORMED:
+                        if confidence > (1.0 - threshold) and confidence > best_confidence:
+                            best_confidence = confidence
+                            best_match = {
+                                'confidence': confidence,
+                                'relative_x': loc[0],
+                                'relative_y': loc[1]
+                            }
+                    else:
+                        if confidence > threshold and confidence > best_confidence:
+                            best_confidence = confidence
+                            best_match = {
+                                'confidence': confidence,
+                                'relative_x': loc[0],
+                                'relative_y': loc[1]
+                            }
+                
+                # Take best match
+                if best_match:
+                    message = f"\nBest match confidence: {best_match['confidence']:.3f}"
+                    self.logger.info(message)
+                    if self.main_window:
+                        self.main_window.add_log(message)
+                        
+                    # Calculate screen coordinates relative to monitor
+                    click_x = monitor["left"] + best_match['relative_x'] + 40  # Center of template
+                    click_y = monitor["top"] + best_match['relative_y'] + 20
+                    
+                    # Log coordinates for debugging
+                    message = f"Match at ({best_match['relative_x']}, {best_match['relative_y']}) in monitor"
+                    self.logger.info(message)
+                    if self.main_window:
+                        self.main_window.add_log(message)
+                    
+                    message = f"Screen position: ({click_x}, {click_y})"
+                    self.logger.info(message)
+                    if self.main_window:
+                        self.main_window.add_log(message)
+                    
+                    # Ensure coordinates are within screen bounds
+                    screen_width = monitor["width"] + monitor["left"]
+                    screen_height = monitor["height"] + monitor["top"]
+                    click_x = max(monitor["left"] + 10, min(click_x, screen_width - 10))
+                    click_y = max(monitor["top"] + 10, min(click_y, screen_height - 10))
+                    
+                    # Move to position and click
+                    message = "Moving to button position..."
+                    self.logger.info(message)
+                    if self.main_window:
+                        self.main_window.add_log(message)
+                    pyautogui.moveTo(click_x, click_y)
+                    time.sleep(0.1)  # Small delay
+                    
+                    message = "Performing click..."
+                    self.logger.info(message)
+                    if self.main_window:
+                        self.main_window.add_log(message)
+                    pyautogui.click()
+                    time.sleep(0.1)  # Small delay between clicks
+                    pyautogui.click()  # Double click to ensure it registers
+                    self.click_history.append(datetime.now())
+                    
+                    # Monitor the click area for changes
+                    message = "Monitoring click area for changes..."
+                    self.logger.info(message)
+                    if self.main_window:
+                        self.main_window.add_log(message)
+                    self.monitor_click_area(click_x, click_y, monitor)
+                    
+                    # Restore original cursor position
+                    message = "Restoring cursor position..."
+                    self.logger.info(message)
+                    if self.main_window:
+                        self.main_window.add_log(message)
+                    restore_x = max(monitor["left"] + 10, min(original_x, screen_width - 10))
+                    restore_y = max(monitor["top"] + 10, min(original_y, screen_height - 10))
+                    pyautogui.moveTo(restore_x, restore_y)
+                    return True
+                else:
+                    message = "No matches found above confidence threshold"
+                    self.logger.info(message)
+                    if self.main_window:
+                        self.main_window.add_log(message)
+                    return False
+                    
+            except Exception as e:
+                message = f"Error finding matches: {str(e)}"
+                self.logger.error(message)
+                if self.main_window:
+                    self.main_window.add_log(message)
+                return False
+            
         except Exception as e:
             message = f"Unexpected error: {str(e)}"
             self.logger.error(message)
