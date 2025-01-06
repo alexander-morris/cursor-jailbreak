@@ -1,30 +1,29 @@
 #!/bin/bash
 
-# Directory setup
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-cd "$SCRIPT_DIR"
+# Get the directory where the script is located
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Run setup if needed
-if [ ! -d "./temp" ]; then
-    echo "Initializing directory structure..."
-    ./setup.sh
-fi
+# Activate virtual environment
+source "$DIR/venv/bin/activate"
 
-# Check if already running
-if [ -f "./temp/clickbot.pid" ]; then
-    PID=$(cat "./temp/clickbot.pid")
-    if ps -p $PID > /dev/null 2>&1; then
-        echo "ClickBot is already running with PID $PID"
-        exit 1
+# Ensure DISPLAY is set for GUI
+export DISPLAY=:0
+
+# Ensure accessibility permissions for mouse control
+if [ "$(uname)" == "Darwin" ]; then
+    # On macOS, check if we have accessibility permissions
+    echo "Checking accessibility permissions..."
+    if ! tccutil status Accessibility 2>/dev/null | grep -q "$DIR/venv/bin/python"; then
+        echo "Please grant accessibility permissions when prompted"
+        echo "System Preferences > Security & Privacy > Privacy > Accessibility"
+        echo "Add and enable Terminal/iTerm2"
     fi
 fi
 
-# Activate virtual environment
-source venv/bin/activate
-
-# Start the bot
+# Start the bot with increased verbosity
 echo "Starting ClickBot..."
-python cursor_auto_accept.py &
-PID=$!
-echo $PID > "./temp/clickbot.pid"
+"$DIR/venv/bin/python" "$DIR/cursor_auto_accept.py" > "$DIR/cursor_bot.log" 2>&1 &
+
+# Save PID
+echo $! > "$DIR/clickbot.pid"
 echo "ClickBot started. To stop it, run: ./stop_clickbot.sh" 
