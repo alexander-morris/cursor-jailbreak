@@ -67,55 +67,163 @@ def load_calibration_data():
     
     return buttons
 
-def find_exact_match(screen_img, template_img, cal_x, cal_y, max_distance=25):
-    """Find exact match within max_distance of calibration point"""
-    # Convert both images to grayscale for more robust matching
-    if len(screen_img.shape) == 3:
-        screen_gray = cv2.cvtColor(screen_img, cv2.COLOR_BGR2GRAY)
+def preprocess_for_matching(img):
+    """Preprocess image for better matching"""
+    if len(img.shape) == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
-        screen_gray = screen_img
-        
-    if len(template_img.shape) == 3:
-        template_gray = cv2.cvtColor(template_img, cv2.COLOR_BGR2GRAY)
-    else:
-        template_gray = template_img
+        gray = img
     
-    # Try different matching methods
-    methods = [
-        (cv2.TM_CCORR_NORMED, 0.8),
-        (cv2.TM_CCOEFF_NORMED, 0.6)
-    ]
+    # Enhance edges
+    edges = cv2.Canny(gray, 50, 150)
     
-    best_match = None
-    best_distance = float('inf')
-    best_confidence = 0
-    best_method = None
+    # Dilate edges slightly to make them more robust
+    kernel = np.ones((2,2), np.uint8)
+    dilated = cv2.dilate(edges, kernel, iterations=1)
+    
+    return dilated
+
+def find_exact_match(screen_img, template_img, cal_x, cal_y, max_distance=5):
+    """Find exact match within max_distance horizontally and up to 80px vertically"""
+    # First pass: Use edge detection to find approximate location
+    screen_edges = preprocess_for_matching(screen_img)
+    template_edges = preprocess_for_matching(template_img)
     
     template_h, template_w = template_img.shape[:2]
     
-    for method, threshold in methods:
-        result = cv2.matchTemplate(screen_gray, template_gray, method)
-        locations = np.where(result >= threshold)
+    # Define asymmetric search region - wide vertically, narrow horizontally
+    vertical_margin = 80  # Allow full 80px vertical movement
+    horizontal_margin = 40  # Increased to accommodate template width
+    
+    # Calculate search boundaries
+    search_top = max(0, cal_y - vertical_margin)
+    search_bottom = min(screen_img.shape[0], cal_y + vertical_margin)
+    search_left = max(0, cal_x - horizontal_margin)
+    search_right = min(screen_img.shape[1], cal_x + horizontal_margin)
+    
+    print(f"\nDebug: Search region:")
+    print(f"  Vertical range: {search_top} to {search_bottom} (±{vertical_margin}px)")
+    print(f"  Horizontal range: {search_left} to {search_right} (±{horizontal_margin}px)")
+    print(f"  Template size: {template_w}x{template_h}")
+    print(f"  Target x: {cal_x} (±{max_distance}px)")
+    
+    # Get search regions for both edge and original images
+    search_region_edges = screen_edges[search_top:search_bottom, search_left:search_right]
+    
+    if search_region_edges.shape[0] < template_h or search_region_edges.shape[1] < template_w:
+        print("Search region too small for template")
+        return None
+    
+    # Convert images to grayscale for direct matching
+    if len(template_img.shape) == 3:
+        template_gray = cv2.cvtColor(template_img, cv2.COLOR_BGR2GRAY)
+    else:
+        template_gray = template_img.copy()
+    
+    if len(screen_img.shape) == 3:
+        screen_gray = cv2.cvtColor(screen_img, cv2.COLOR_BGR2GRAY)
+    else:
+        screen_gray = screen_img.copy()
+    
+    search_region_gray = screen_gray[search_top:search_bottom, search_left:search_right]
+    
+    # Try different scales
+    scales = [1.0, 0.995, 1.005]
+    best_match = None
+    best_distance = float('inf')
+    best_confidence = 0
+    
+    for scale in scales:
+        if scale != 1.0:
+            scaled_template_edges = cv2.resize(template_edges, 
+                (int(template_w * scale), int(template_h * scale)),
+                interpolation=cv2.INTER_NEAREST)
+            scaled_template_gray = cv2.resize(template_gray,
+                (int(template_w * scale), int(template_h * scale)),
+                interpolation=cv2.INTER_LINEAR)
+        else:
+            scaled_template_edges = template_edges
+            scaled_template_gray = template_gray
         
-        for pt in zip(*locations[::-1]):
-            # Calculate center of match
-            match_x = pt[0] + template_w // 2
-            match_y = pt[1] + template_h // 2
+        scaled_h, scaled_w = scaled_template_edges.shape[:2]
+        
+        if search_region_edges.shape[0] < scaled_h or search_region_edges.shape[1] < scaled_w:
+            continue
+        
+        # First pass: Match edges to find potential locations
+        edge_result = cv2.matchTemplate(search_region_edges, scaled_template_edges, cv2.TM_CCOEFF_NORMED)
+        edge_matches = np.where(edge_result >= 0.3)
+        edge_confidences = edge_result[edge_matches[0], edge_matches[1]]
+        
+        print(f"\nFound {len(edge_matches[0])} potential edge matches")
+        if len(edge_matches[0]) > 0:
+            print(f"Edge confidence range: {np.min(edge_confidences):.4f} - {np.max(edge_confidences):.4f}")
+        
+        # Sort matches by confidence
+        match_data = list(zip(edge_matches[1], edge_matches[0], edge_confidences))
+        match_data.sort(key=lambda x: x[2], reverse=True)
+        
+        # Check top matches
+        for pt_x, pt_y, edge_conf in match_data[:20]:
+            # Calculate absolute position
+            abs_x = search_left + pt_x
+            abs_y = search_top + pt_y
             
-            # Calculate distance from calibration point
-            distance = ((match_x - cal_x) ** 2 + (match_y - cal_y) ** 2) ** 0.5
-            confidence = result[pt[1], pt[0]]
+            # Get ROI for both edge and direct matching
+            roi_edges = search_region_edges[pt_y:pt_y+scaled_h, pt_x:pt_x+scaled_w]
+            roi_gray = search_region_gray[pt_y:pt_y+scaled_h, pt_x:pt_x+scaled_w]
             
-            if distance <= max_distance and confidence > best_confidence:
-                best_confidence = confidence
-                best_distance = distance
-                best_match = (match_x, match_y, confidence, distance)
-                best_method = method
+            if roi_edges.shape != scaled_template_edges.shape or roi_gray.shape != scaled_template_gray.shape:
+                continue
+            
+            # Second pass: Direct template matching on grayscale
+            direct_result = cv2.matchTemplate(roi_gray, scaled_template_gray, cv2.TM_CCOEFF_NORMED)
+            direct_conf = direct_result[0][0]
+            
+            # Calculate edge overlap ratio
+            edge_overlap = np.sum(roi_edges & scaled_template_edges) / np.sum(scaled_template_edges)
+            
+            # Calculate center based on actual button pixels
+            match_x = abs_x + scaled_w // 2
+            match_y = abs_y + scaled_h // 2
+            
+            # Calculate horizontal and vertical distances from calibration point
+            h_distance = abs(match_x - cal_x)
+            v_distance = abs(match_y - cal_y)
+            
+            # Only proceed if horizontal distance is within tolerance
+            if h_distance <= max_distance and v_distance <= vertical_margin:
+                print(f"\nChecking match at ({match_x}, {match_y}):")
+                print(f"  Horizontal distance: {h_distance:.2f}px")
+                print(f"  Vertical distance: {v_distance:.2f}px")
+                print(f"  Edge confidence: {edge_conf:.4f}")
+                print(f"  Direct confidence: {direct_conf:.4f}")
+                print(f"  Edge overlap: {edge_overlap:.4f}")
+                
+                # Combined score weighted towards direct matching
+                match_quality = (direct_conf * 0.5 + edge_overlap * 0.3 + edge_conf * 0.2)
+                print(f"  Match quality: {match_quality:.4f}")
+                
+                if match_quality > 0.5:  # Require higher quality for combined matching
+                    if h_distance < best_distance or (h_distance == best_distance and match_quality > best_confidence):
+                        best_distance = h_distance
+                        best_confidence = match_quality
+                        best_match = (match_x, match_y, match_quality, h_distance)
+                        print("  → Selected as best match so far")
     
     if best_match:
-        print(f"Best match found using method: {best_method}")
+        print(f"\nFinal match results:")
+        print(f"  Horizontal distance: {best_distance:.2f}px")
+        print(f"  Vertical offset: {abs(best_match[1] - cal_y):.2f}px")
+        print(f"  Match quality: {best_confidence:.4f}")
+        print(f"  Position: ({best_match[0]}, {best_match[1]})")
+        
+        if best_distance <= max_distance:
+            print(f"✓ Match within horizontal precision of {max_distance}px")
+        else:
+            print(f"⚠ Match outside horizontal precision of {max_distance}px")
     
-    return best_match
+    return best_match if best_match and best_distance <= max_distance else None
 
 def verify_match(current_img, template_img, threshold=0.75):
     """Verify if current image matches template using multiple methods"""
