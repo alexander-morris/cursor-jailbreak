@@ -1,6 +1,18 @@
-# Cursor Auto Accept Bot
+# Cursor Auto Accept
 
-A bot that automatically accepts Cursor AI prompts across multiple monitors.
+A tool for automatically accepting Cursor's AI suggestions.
+
+## Important Note
+
+The `analyze_hover_results.py` script is the current working version for analyzing button positions and matches. This script:
+- Takes a full screen screenshot
+- Analyzes potential button matches using template matching
+- Groups matches by x-axis position
+- Prioritizes matches by confidence and y-axis position
+- Generates a visualization showing calibration points and matches
+- Uses color coding to distinguish between different buttons (green, yellow, red)
+
+Other calibration scripts have been moved to the `_archive` directory.
 
 ## Features
 

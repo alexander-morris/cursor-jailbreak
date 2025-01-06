@@ -8,14 +8,15 @@ from PIL import Image
 import logging
 import tkinter as tk
 from tkinter import ttk
+from skimage.metrics import structural_similarity as ssim
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def get_monitor():
-    """Get monitor 2 (third monitor, index 2) and validate coordinates"""
+def get_monitor(button_index=None):
+    """Get monitor based on button index (0-based) or monitor 2 if no index provided"""
     sct = mss.mss()
     monitors = []
     print("\nDetected monitors:")
@@ -30,12 +31,19 @@ def get_monitor():
         monitors.append(monitor)
         print(f"Monitor {i}: {monitor['width']}x{monitor['height']} at ({monitor['left']}, {monitor['top']})")
     
-    if len(monitors) < 3:
-        print("Error: Monitor 2 (third monitor) not found!")
-        return None
+    if button_index is not None:
+        if button_index < 0 or button_index >= len(monitors):
+            print(f"Error: Monitor {button_index} not found!")
+            return None
+        target_monitor = monitors[button_index]
+        print(f"\nSelected monitor {button_index}: {target_monitor['width']}x{target_monitor['height']} at ({target_monitor['left']}, {target_monitor['top']})")
+    else:
+        if len(monitors) < 3:
+            print("Error: Monitor 2 (third monitor) not found!")
+            return None
+        target_monitor = monitors[2]  # Default to monitor 2 if no index provided
+        print(f"\nSelected monitor 2: {target_monitor['width']}x{target_monitor['height']} at ({target_monitor['left']}, {target_monitor['top']})")
     
-    target_monitor = monitors[2]  # Get monitor 2 (third monitor)
-    print(f"\nSelected monitor 2: {target_monitor['width']}x{target_monitor['height']} at ({target_monitor['left']}, {target_monitor['top']})")
     return target_monitor
 
 def validate_coordinates(x, y, monitor):
@@ -179,50 +187,30 @@ def capture_button_states(index):
     
     return rel_x, rel_y, target_monitor
 
-def verify_match(current_img, template_img, threshold=0.75):
-    """Verify if current image matches template using multiple methods"""
-    # Convert images to grayscale for more robust matching
-    if len(current_img.shape) == 3:
-        current_gray = cv2.cvtColor(current_img, cv2.COLOR_BGR2GRAY)
-    else:
-        current_gray = current_img
+def verify_match(img, template, correlation_threshold=0.7):
+    """Verify if an image patch matches the template."""
+    # Ensure same size
+    if img.shape != template.shape:
+        print("Size mismatch in verify_match")
+        return False
         
-    if len(template_img.shape) == 3:
-        template_gray = cv2.cvtColor(template_img, cv2.COLOR_BGR2GRAY)
-    else:
-        template_gray = template_img
+    # Calculate verification metrics
+    correlation = cv2.matchTemplate(img, template, cv2.TM_CCORR_NORMED)[0][0]
+    mse = np.mean((img.astype("float") - template.astype("float")) ** 2)
+    mse_score = 1 - (mse / 255**2)  # Normalize to 0-1 range
+    ssim_score = ssim(img, template, channel_axis=2, win_size=3)  # Use small window size for small images
     
-    # Method 1: Template matching with normalized cross-correlation
-    result = cv2.matchTemplate(current_gray, template_gray, cv2.TM_CCORR_NORMED)
-    correlation = np.max(result)
+    # Calculate final score (weighted average)
+    final_score = (correlation * 0.6) + (mse_score * 0.3) + (ssim_score * 0.1)
     
-    # Method 2: Mean squared error
-    if current_gray.shape == template_gray.shape:
-        mse = np.mean((current_gray - template_gray) ** 2)
-        mse_score = 1 - (mse / 255**2)  # Normalize to 0-1 range
-    else:
-        mse_score = 0
-    
-    # Method 3: Structural similarity (if images are same size)
-    if current_gray.shape == template_gray.shape:
-        try:
-            from skimage.metrics import structural_similarity as ssim
-            ssim_score = ssim(current_gray, template_gray)
-        except ImportError:
-            ssim_score = 0
-    else:
-        ssim_score = 0
-    
-    # Combine scores with adjusted weights
-    final_score = (0.6 * correlation + 0.3 * mse_score + 0.1 * ssim_score)  # Give more weight to correlation
-    
-    print(f"Verification scores:")
+    print("Verification scores:")
     print(f"  Correlation: {correlation:.3f}")
     print(f"  MSE Score: {mse_score:.3f}")
     print(f"  SSIM Score: {ssim_score:.3f}")
     print(f"  Final Score: {final_score:.3f}")
     
-    return final_score >= threshold
+    # More lenient thresholds
+    return correlation >= correlation_threshold and mse_score >= 0.95 and final_score >= 0.65
 
 def analyze_button_images(run_time=30):  # 30 seconds
     if not check_calibration_data():
@@ -237,6 +225,19 @@ def analyze_button_images(run_time=30):  # 30 seconds
     if not target_monitor:
         print("Error: Could not find monitor 2!")
         return
+    
+    # Take full monitor screenshot for visualization
+    with mss.mss() as sct:
+        monitor_region = {
+            "left": target_monitor["left"],
+            "top": target_monitor["top"],
+            "width": target_monitor["width"],
+            "height": target_monitor["height"],
+            "mon": target_monitor["name"]
+        }
+        full_screenshot = np.array(sct.grab(monitor_region))
+    full_screenshot_bgr = cv2.cvtColor(full_screenshot, cv2.COLOR_BGRA2BGR)
+    visualization = full_screenshot_bgr.copy()
     
     assets_dir = Path('assets/monitor_0')
     pre_click_files = sorted(assets_dir.glob('button_*_pre.png'))
@@ -275,93 +276,145 @@ def analyze_button_images(run_time=30):  # 30 seconds
         })
         print(f"Loaded Button {i} calibration position: ({rel_x}, {rel_y})")
         print(f"Template size: {pre_img.shape[1]}x{pre_img.shape[0]}")
+        
+        # Draw calibration point on visualization
+        cv2.circle(visualization, (rel_x, rel_y), 5, (0, 0, 255), -1)  # Red dot
+        cv2.putText(visualization, f"Cal {i}", (rel_x + 10, rel_y), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
     
     if not buttons:
         print("No valid buttons found within monitor 2 bounds!")
         return
     
     print(f"\nLoaded {len(buttons)} valid buttons")
-    print("\nStarting continuous monitoring...")
-    print(f"Will run for {run_time} seconds")
+    print("\nStarting analysis...")
     print("=" * 50)
     
-    start_time = time.time()
-    confidence_threshold = 0.85
+    # Create debug directory
+    debug_dir = Path('debug')
+    debug_dir.mkdir(exist_ok=True)
     
-    while time.time() - start_time < run_time:
-        # Take a full screenshot of monitor 2
-        monitor_region = {
-            "left": target_monitor["left"],
-            "top": target_monitor["top"],
-            "width": target_monitor["width"],
-            "height": target_monitor["height"],
+    # Search parameters
+    search_margin_x = 40  # pixels to search horizontally
+    search_margin_y = 80  # pixels to search vertically
+    confidence_threshold = 0.80  # Slightly relaxed from 0.85
+    
+    for button in buttons:
+        print(f"\nAnalyzing Button {button['button_num']}...")
+        cal_x, cal_y = button['calibration_x'], button['calibration_y']
+        print(f"Calibration position: ({cal_x}, {cal_y})")
+        
+        # Get template dimensions
+        template_h, template_w = button['pre_img'].shape[:2]
+        print(f"Template size: {template_w}x{template_h}")
+        
+        # Calculate center offset for template
+        center_x = template_w // 2
+        center_y = template_h // 2
+        print(f"Template center offset: ({center_x}, {center_y})")
+        
+        # Define search region around calibration point
+        search_region = {
+            "left": target_monitor["left"] + cal_x - search_margin_x - center_x,
+            "top": target_monitor["top"] + cal_y - search_margin_y - center_y,
+            "width": (search_margin_x * 2) + template_w,
+            "height": (search_margin_y * 2) + template_h,
             "mon": target_monitor["name"]
         }
         
+        print(f"\nSearch region:")
+        print(f"  Monitor position: ({target_monitor['left']}, {target_monitor['top']})")
+        print(f"  Calibration point (monitor-relative): ({cal_x}, {cal_y})")
+        print(f"  Search region position: ({search_region['left']}, {search_region['top']})")
+        print(f"  Search region size: {search_region['width']}x{search_region['height']}")
+        print(f"  X search range: {cal_x - search_margin_x} to {cal_x + search_margin_x}")
+        print(f"  Y search range: {cal_y - search_margin_y} to {cal_y + search_margin_y}")
+        
+        # Take screenshot of search region
         with mss.mss() as sct:
-            screenshot = np.array(sct.grab(monitor_region))
+            screenshot = np.array(sct.grab(search_region))
         img_bgr = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
         
-        for button in buttons:
-            print(f"\nSearching for Button {button['button_num']}...")
-            
-            # Find matches for pre-click template
-            result = cv2.matchTemplate(img_bgr, button['pre_img'], cv2.TM_CCORR_NORMED)
-            locations = np.where(result >= confidence_threshold)
-            
-            for pt in zip(*locations[::-1]):
-                # Calculate monitor-relative coordinates
-                template_x = pt[0]
-                template_y = pt[1]
-                
-                confidence = result[pt[1], pt[0]]
-                
-                print(f"\nFound potential match for Button {button['button_num']}:")
-                print(f"Position: ({template_x}, {template_y})")
-                print(f"Confidence: {confidence:.3f}")
-                
-                # Move to match position
-                screen_x = target_monitor["left"] + template_x
-                screen_y = target_monitor["top"] + template_y
-                print(f"Moving to position to verify match...")
-                pyautogui.moveTo(screen_x, screen_y, duration=0.5)
-                time.sleep(0.5)
-                
-                # Verify pre-click state
-                verify_region = {
-                    "left": screen_x,
-                    "top": screen_y,
-                    "width": button['pre_img'].shape[1],
-                    "height": button['pre_img'].shape[0],
-                    "mon": target_monitor["name"]
-                }
-                
-                with mss.mss() as sct:
-                    current = np.array(sct.grab(verify_region))
-                current_bgr = cv2.cvtColor(current, cv2.COLOR_BGRA2BGR)
-                
-                if verify_match(current_bgr, button['pre_img']):
-                    print("Pre-click match verified!")
-                    print("Clicking to verify post-click state...")
-                    
-                    # Click and wait briefly
-                    pyautogui.click()
-                    time.sleep(0.5)
-                    
-                    # Capture and verify post-click state
-                    with mss.mss() as sct:
-                        post_click = np.array(sct.grab(verify_region))
-                    post_click_bgr = cv2.cvtColor(post_click, cv2.COLOR_BGRA2BGR)
-                    
-                    if verify_match(post_click_bgr, button['post_img']):
-                        print("Post-click state verified!")
-                    else:
-                        print("Post-click state did not match template")
-                else:
-                    print("Pre-click match failed verification")
+        # Save search region for debugging
+        debug_search = img_bgr.copy()
+        # Draw calibration point (should be at center of search region)
+        center_search_x = search_margin_x + center_x
+        center_search_y = search_margin_y + center_y
+        cv2.circle(debug_search, (center_search_x, center_search_y), 3, (0, 0, 255), -1)
+        # Draw template box
+        cv2.rectangle(debug_search, 
+                     (center_search_x - center_x, center_search_y - center_y),
+                     (center_search_x + center_x, center_search_y + center_y),
+                     (0, 255, 0), 1)
+        cv2.imwrite(str(debug_dir / f'search_region_{button["button_num"]}.png'), debug_search)
         
-        # Small delay before next iteration
-        time.sleep(1.0)
+        # Find matches
+        result = cv2.matchTemplate(img_bgr, button['pre_img'], cv2.TM_CCORR_NORMED)
+        locations = np.where(result >= confidence_threshold)
+        
+        print(f"\nFound {len(locations[0])} potential matches")
+        
+        best_match = None
+        best_distance = float('inf')
+        
+        for pt in zip(*locations[::-1]):
+            # Calculate monitor-relative coordinates
+            match_x = cal_x - search_margin_x + pt[0]
+            match_y = cal_y - search_margin_y + pt[1]
+            
+            # Calculate distance from calibration point
+            distance = ((match_x - cal_x) ** 2 + (match_y - cal_y) ** 2) ** 0.5
+            confidence = result[pt[1], pt[0]]
+            
+            print(f"\nFound match:")
+            print(f"  Template position in search region: ({pt[0]}, {pt[1]})")
+            print(f"  Monitor-relative position: ({match_x}, {match_y})")
+            print(f"  Distance from calibration: {distance:.1f}px")
+            print(f"  Confidence: {confidence:.3f}")
+            
+            # Save match region for debugging
+            match_region = {
+                "left": target_monitor["left"] + match_x - center_x,
+                "top": target_monitor["top"] + match_y - center_y,
+                "width": template_w,
+                "height": template_h,
+                "mon": target_monitor["name"]
+            }
+            
+            with mss.mss() as sct:
+                match_img = np.array(sct.grab(match_region))
+            match_bgr = cv2.cvtColor(match_img, cv2.COLOR_BGRA2BGR)
+            
+            # Draw center point on match image
+            match_debug = match_bgr.copy()
+            cv2.circle(match_debug, (center_x, center_y), 3, (0, 0, 255), -1)
+            
+            # Save debug image
+            cv2.imwrite(str(debug_dir / f'match_{button["button_num"]}_{int(match_x)}_{int(match_y)}.png'), match_debug)
+            
+            # Verify match with slightly relaxed thresholds
+            if verify_match(match_bgr, button['pre_img'], correlation_threshold=0.7):
+                print("Match verified!")
+                print(f"Final position: ({match_x}, {match_y})")
+                
+                # Update best match if this is closer
+                if distance < best_distance:
+                    best_match = (match_x, match_y)
+                    best_distance = distance
+            else:
+                print("Match failed verification")
+        
+        # Draw best match on visualization if found
+        if best_match:
+            match_x, match_y = best_match
+            cv2.circle(visualization, (match_x, match_y), 5, (255, 0, 0), -1)  # Blue dot
+            cv2.putText(visualization, f"Match {button['button_num']}", (match_x + 10, match_y), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+            # Draw line between calibration point and match
+            cv2.line(visualization, (cal_x, cal_y), (match_x, match_y), (0, 255, 0), 1)
+    
+    # Save visualization
+    cv2.imwrite(str(debug_dir / 'calibration_matches.png'), visualization)
     
     print("\nAnalysis complete!")
     print("=" * 50)
@@ -517,5 +570,151 @@ def find_precise_button_location(template_img, target_monitor, current_x, curren
         }
     return None
 
+def analyze_single_screenshot():
+    """Take a single screenshot and analyze it for potential matches"""
+    print("Taking full screen screenshot and analyzing...")
+    print("=" * 50)
+    
+    target_monitor = get_monitor()
+    if not target_monitor:
+        print("Error: Could not find monitor 2!")
+        return
+    
+    # Take full monitor screenshot
+    with mss.mss() as sct:
+        monitor_region = {
+            "left": target_monitor["left"],
+            "top": target_monitor["top"],
+            "width": target_monitor["width"],
+            "height": target_monitor["height"],
+            "mon": target_monitor["name"]
+        }
+        full_screenshot = np.array(sct.grab(monitor_region))
+    
+    # Convert to BGR for OpenCV
+    screenshot_bgr = cv2.cvtColor(full_screenshot, cv2.COLOR_BGRA2BGR)
+    visualization = screenshot_bgr.copy()
+    
+    # Load calibration data
+    assets_dir = Path('assets/monitor_0')
+    pre_click_files = sorted(assets_dir.glob('button_*_pre.png'))
+    coords_files = sorted(assets_dir.glob('click_coords_*.txt'))
+    
+    if not pre_click_files:
+        print("No button images found!")
+        return
+    
+    # Create debug directory
+    debug_dir = Path('debug')
+    debug_dir.mkdir(exist_ok=True)
+    
+    # Define colors for each button (BGR format)
+    button_colors = [
+        (0, 255, 0),    # Green for button 1
+        (0, 255, 255),  # Yellow for button 2
+        (0, 0, 255)     # Red for button 3
+    ]
+    
+    # Load and analyze each button
+    for i, (pre_file, coords_file) in enumerate(zip(pre_click_files, coords_files), 1):
+        print(f"\nAnalyzing Button {i}...")
+        
+        # Load template and coordinates
+        template = cv2.imread(str(pre_file))
+        if template is None:
+            print(f"Failed to load template {pre_file}")
+            continue
+            
+        with open(coords_file) as f:
+            cal_x, cal_y = map(int, f.read().strip().split(','))
+        
+        print(f"Calibration position: ({cal_x}, {cal_y})")
+        
+        # Draw calibration point
+        color = button_colors[i-1]
+        cv2.circle(visualization, (cal_x, cal_y), 8, color, -1)
+        cv2.putText(visualization, f"Cal {i}", (cal_x + 15, cal_y), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
+        
+        # Find all matches in the screenshot
+        result = cv2.matchTemplate(screenshot_bgr, template, cv2.TM_CCORR_NORMED)
+        
+        # Get matches
+        matches = []
+        template_h, template_w = template.shape[:2]
+        
+        # Flatten result array and get indices of top matches
+        flat_result = result.flatten()
+        top_indices = np.argsort(flat_result)[-50:]  # Get more initial matches
+        
+        for idx in top_indices[::-1]:  # Process highest confidence first
+            # Convert flat index back to 2D coordinates
+            y_idx, x_idx = np.unravel_index(idx, result.shape)
+            confidence = flat_result[idx]
+            
+            if confidence < 0.9:  # Only consider very high confidence matches
+                continue
+                
+            match_x = x_idx + template_w//2
+            match_y = y_idx + template_h//2
+            
+            # Add to matches list
+            matches.append({
+                'x': match_x,
+                'y': match_y,
+                'confidence': confidence
+            })
+        
+        # Group matches by x-axis position (within 20px)
+        x_groups = {}
+        for match in matches:
+            grouped = False
+            for base_x in x_groups:
+                if abs(match['x'] - base_x) <= 20:
+                    x_groups[base_x].append(match)
+                    grouped = True
+                    break
+            if not grouped:
+                x_groups[match['x']] = [match]
+        
+        # Find best match in each x-position group
+        best_matches = []
+        for base_x, group in x_groups.items():
+            # Sort by confidence first, then y-position
+            group.sort(key=lambda m: (m['confidence'], m['y']), reverse=True)
+            best_matches.append(group[0])
+        
+        # Sort final matches by confidence
+        best_matches.sort(key=lambda m: m['confidence'], reverse=True)
+        top_matches = best_matches[:5]
+        
+        print(f"\nTop {len(top_matches)} matches for Button {i} (grouped by x-position):")
+        for idx, match in enumerate(top_matches, 1):
+            print(f"Match {idx}:")
+            print(f"  Position: ({match['x']}, {match['y']})")
+            print(f"  Confidence: {match['confidence']:.3f}")
+            
+            # Draw match on visualization
+            cv2.circle(visualization, (match['x'], match['y']), 6, color, -1)
+            cv2.putText(visualization, f"{match['confidence']:.3f}", 
+                       (match['x'] + 10, match['y'] - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            
+            # Draw line to calibration point
+            cv2.line(visualization, (cal_x, cal_y), 
+                    (match['x'], match['y']), color, 1)
+    
+    # Add legend
+    legend_y = 30
+    for i, color in enumerate(button_colors, 1):
+        cv2.putText(visualization, f"Button {i}", (10, legend_y), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        legend_y += 25
+    
+    # Save the visualization
+    cv2.imwrite(str(debug_dir / 'top_matches.png'), visualization)
+    print("\nSaved visualization to debug/top_matches.png")
+    print("=" * 50)
+
 if __name__ == "__main__":
-    analyze_button_images() 
+    analyze_single_screenshot() 
