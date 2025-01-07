@@ -1,27 +1,16 @@
 # Cursor Auto Accept
 
-A tool for automatically accepting Cursor's AI suggestions.
-
-## Important Note
-
-The `analyze_hover_results.py` script is the current working version for analyzing button positions and matches. This script:
-- Takes a full screen screenshot
-- Analyzes potential button matches using template matching
-- Groups matches by x-axis position
-- Prioritizes matches by confidence and y-axis position
-- Generates a visualization showing calibration points and matches
-- Uses color coding to distinguish between different buttons (green, yellow, red)
-
-Other calibration scripts have been moved to the `_archive` directory.
+A tool for automatically accepting Cursor's AI suggestions using robust multi-scale template matching.
 
 ## Features
 
 - Multi-monitor support with per-monitor calibration
-- Rate limiting (max 8 clicks per minute)
-- Cursor position restoration after clicks
-- Automatic calibration
-- Process management (start/stop scripts)
-- Detailed logging
+- Gold standard button detection algorithm:
+  - Multi-scale template matching (0.995x - 1.005x)
+  - Edge detection pre-filtering
+  - Weighted scoring system (direct match, edge overlap, edge confidence)
+- Rate limiting and cursor position restoration
+- Detailed logging and error handling
 
 ## Setup
 
@@ -31,132 +20,115 @@ git clone https://github.com/yourusername/cursor-auto-accept
 cd cursor-auto-accept
 ```
 
-2. Run the setup script:
+2. Create and activate a Python virtual environment:
 ```bash
-./setup.sh
+python -m venv venv
+source venv/bin/activate  # On Unix/macOS
+# or
+.\venv\Scripts\activate  # On Windows
 ```
-This will:
-- Create necessary directories
-- Set up permissions
-- Create a Python virtual environment
-- Install required packages
 
-## Calibration
-
-Before first use, you need to calibrate the bot for each monitor where you use Cursor:
-
-1. Stop the bot if it's running:
+3. Install required packages:
 ```bash
-./stop_clickbot.sh
-```
-
-2. Run calibration mode:
-
-   For all monitors:
-   ```bash
-   source venv/bin/activate
-   python cursor_auto_accept.py --capture
-   ```
-
-   For a specific monitor (0-based index):
-   ```bash
-   python cursor_auto_accept.py --capture --monitor 0  # First monitor
-   python cursor_auto_accept.py --capture --monitor 1  # Second monitor
-   ```
-
-3. Follow the calibration steps for each monitor:
-   - Move Cursor to the target monitor
-   - Trigger an AI prompt (so you can see the accept button)
-   - Move your mouse over the accept button
-   - Keep it still for 5 seconds
-   - Wait for confirmation message
-   - Press Enter to continue to next monitor (if calibrating all)
-
-The bot will save separate accept button images for each monitor in:
-```
-assets/monitor_0/accept_button.png
-assets/monitor_1/accept_button.png
-...
+pip install -r requirements.txt
 ```
 
 ## Usage
 
-### Starting the Bot
+### Initial Calibration
 
+Before first use, you need to calibrate the bot:
+
+1. Run the main application:
 ```bash
-./start_clickbot.sh
+python main.py
 ```
 
-The bot will:
-- Check if another instance is running
-- Load calibration images for all monitors
-- Start monitoring all screens
-- Begin accepting prompts automatically
+2. The application will:
+   - Detect all available monitors
+   - Guide you through calibrating each button
+   - Save calibration data for future use
 
-### Stopping the Bot
+3. During calibration:
+   - Move your mouse over each button when prompted
+   - Keep it still for the countdown
+   - The app will capture both pre-click and post-click states
+   - Repeat for all required buttons
 
+### Running the Bot
+
+After calibration:
+
+1. Start the application:
 ```bash
-./stop_clickbot.sh
+python main.py
 ```
 
-### Monitoring
+2. The bot will:
+   - Load saved calibration data
+   - Begin monitoring for buttons using the gold standard detection algorithm
+   - Automatically click detected buttons
 
-The bot logs all activity to `temp/logs/clickbot.log`. You can monitor it with:
-```bash
-tail -f temp/logs/clickbot.log
-```
+### Button Detection Algorithm
 
-## Configuration
+The bot uses a sophisticated button detection approach:
 
-The bot has several built-in settings:
-- Rate limit: 8 clicks per minute
-- Confidence threshold: 0.8 (80% match required)
-- Search interval: 0.2 seconds
-- Log update interval: 5 seconds
+1. **Pre-filtering**:
+   - Edge detection with optimized Canny parameters (30, 120)
+   - Edge dilation for better connectivity
 
-## Troubleshooting
+2. **Multi-scale Search**:
+   - Scales: 0.995, 1.0, 1.005
+   - Search margins: ±100px vertical, ±50px horizontal
 
-1. If the bot isn't clicking on a specific monitor:
-   - Recalibrate that monitor: `python cursor_auto_accept.py --capture --monitor X`
-   - Check the logs for monitor-specific errors
-   - Ensure Cursor's accept button is visible on that monitor
-
-2. If clicks are inaccurate:
-   - Recalibrate with a clearer view of the accept button
-   - Make sure the button isn't partially obscured
-   - Try calibrating in different lighting conditions
-
-3. If the bot won't start:
-   - Check if another instance is running
-   - Verify the PID file in `temp/clickbot.pid`
-   - Ensure Python environment is activated
+3. **Match Quality Scoring**:
+   - Direct template matching (65%)
+   - Edge overlap ratio (20%)
+   - Edge confidence (15%)
 
 ## Directory Structure
 
 ```
 .
-├── assets/                    # Calibration images
-│   ├── monitor_0/            # First monitor
-│   │   └── accept_button.png
-│   └── monitor_1/            # Second monitor
-│       └── accept_button.png
-├── temp/                     # Runtime files
-│   ├── clickbot.pid          # Process ID
-│   └── logs/                # Log files
-├── cursor_auto_accept.py     # Main bot script
-├── setup.sh                  # Setup script
-├── start_clickbot.sh         # Start script
-└── stop_clickbot.sh          # Stop script
+├── assets/                     # Calibration data
+│   └── monitor_*/             # Per-monitor data
+│       ├── button_*_pre.png   # Button templates
+│       ├── button_*_post.png  # Post-click states
+│       ├── click_coords_*.txt # Click coordinates
+│       └── monitor_*.txt      # Monitor info
+├── src/                       # Source code
+│   ├── core/                  # Core functionality
+│   │   ├── button_detector.py # Button detection
+│   │   └── calibrator.py      # Calibration
+│   └── ui/                    # User interface
+├── debug/                     # Debug output
+└── main.py                    # Entry point
 ```
 
 ## Requirements
 
 - Python 3.8+
-- OpenCV
-- PyAutoGUI
+- OpenCV-Python
 - MSS (Multi-Screen Shot)
 - NumPy
-- Pillow
+- PyQt5 (for UI)
+
+## Troubleshooting
+
+1. **Button Detection Issues**:
+   - Ensure proper lighting conditions
+   - Recalibrate if button appearance changes
+   - Check debug logs for match quality scores
+
+2. **Monitor Detection**:
+   - Verify monitor configuration in system settings
+   - Check monitor boundaries in debug output
+   - Ensure calibration points are within screen bounds
+
+3. **Performance Issues**:
+   - Monitor CPU usage in debug logs
+   - Adjust search interval if needed
+   - Check for conflicting screen capture tools
 
 ## License
 

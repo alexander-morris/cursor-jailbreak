@@ -20,193 +20,190 @@ class ButtonDetector:
         self.debug_dir = Path(ClickBotConfig.DEBUG_DIR)
         self.debug_dir.mkdir(parents=True, exist_ok=True)
         
-    def verify_match(self, img, template, correlation_threshold=0.7):
-        """Verify if an image patch matches the template."""
-        # Ensure same size and format
-        if img.shape != template.shape:
-            logger.warning("Size mismatch in verify_match")
-            return False, 0.0
+    def preprocess_with_edges(self, image):
+        """Apply edge detection preprocessing."""
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image.copy()
             
-        # Convert both to BGR if needed
-        if len(img.shape) == 2:
-            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        if len(template.shape) == 2:
-            template = cv2.cvtColor(template, cv2.COLOR_GRAY2BGR)
+        # Apply Canny edge detection with optimized parameters
+        edges = cv2.Canny(gray, 30, 120, L2gradient=True)
+        
+        # Dilate edges for better connectivity
+        kernel = np.ones((2, 2), np.uint8)
+        edges = cv2.dilate(edges, kernel, iterations=1)
+        
+        return edges
+        
+    def calculate_edge_overlap(self, region_edges, template_edges):
+        """Calculate edge overlap ratio between region and template."""
+        if region_edges.shape != template_edges.shape:
+            return 0.0
             
-        # Calculate verification metrics
-        correlation = cv2.matchTemplate(img, template, cv2.TM_CCORR_NORMED)[0][0]
-        mse = np.mean((img.astype("float") - template.astype("float")) ** 2)
-        mse_score = 1 - (mse / 255**2)  # Normalize to 0-1 range
-        ssim_score = ssim(img, template, channel_axis=2, win_size=3)  # Use small window size for small images
+        intersection = np.sum(region_edges & template_edges)
+        template_sum = np.sum(template_edges)
         
-        # Calculate final score (weighted average)
-        final_score = (correlation * 0.6) + (mse_score * 0.3) + (ssim_score * 0.1)
+        if template_sum == 0:
+            return 0.0
+            
+        return intersection / template_sum
         
-        logger.info("Verification scores:")
-        logger.info(f"  Correlation: {correlation:.3f}")
-        logger.info(f"  MSE Score: {mse_score:.3f}")
-        logger.info(f"  SSIM Score: {ssim_score:.3f}")
-        logger.info(f"  Final Score: {final_score:.3f}")
-        
-        # More lenient thresholds matching original code
-        is_match = correlation >= correlation_threshold and mse_score >= 0.95 and final_score >= 0.65
-        return is_match, final_score
-        
-    def find_matches(self, monitor, buttons, confidence_threshold=0.75):
-        """Find matches for calibrated buttons in the current screen."""
+    def find_matches(self, monitor, buttons, confidence_threshold=0.75, test_image=None):
+        """Find matches for calibrated buttons in the given monitor."""
         logger.info("Finding matches for calibrated buttons...")
-        
-        # Take a full screenshot of the monitor
-        with mss.mss() as sct:
-            screenshot = sct.grab(monitor)
-            screen = np.array(screenshot)
-            screen_bgr = cv2.cvtColor(screen, cv2.COLOR_BGRA2BGR)
-            
         matches = []
+        
+        # Get screen image
+        if test_image is not None:
+            screen_bgr = test_image
+        else:
+            with mss.mss() as sct:
+                screen = sct.grab(monitor)
+                screen_bgr = np.array(screen)
+                if len(screen_bgr.shape) == 3 and screen_bgr.shape[2] == 4:
+                    screen_bgr = cv2.cvtColor(screen_bgr, cv2.COLOR_BGRA2BGR)
+        
+        # Validate screen capture
+        if screen_bgr is None or screen_bgr.size == 0:
+            logger.error("Failed to capture screen or empty screen image")
+            return matches
+            
+        screen_h, screen_w = screen_bgr.shape[:2]
+        logger.info(f"Screen dimensions: {screen_w}x{screen_h}")
+        
         for button in buttons:
-            template = button['template']
+            # Get template from button data
+            template = button["template"]
+            if template is None:
+                logger.error(f"No template found for button {button['index']}")
+                continue
+                
+            # Get template dimensions
             template_h, template_w = template.shape[:2]
             
-            # Calculate search region around calibration point
-            cal_x, cal_y = button['x'], button['y']
+            # Get calibration point
+            cal_x = button["x"]
+            cal_y = button["y"]
             
-            # Calculate center offset for template
-            center_x = template_w // 2
-            center_y = template_h // 2
+            logger.info(f"Processing button {button['index']} at ({cal_x}, {cal_y})")
             
-            # Search parameters
-            search_margin_x = 40  # pixels to search horizontally
-            search_margin_y = 80  # pixels to search vertically
+            # Validate calibration point
+            if cal_x < 0 or cal_x >= screen_w or cal_y < 0 or cal_y >= screen_h:
+                logger.error(f"Calibration point ({cal_x}, {cal_y}) is outside screen bounds")
+                continue
             
-            # Define search region around calibration point
-            search_region = {
-                "left": monitor["left"] + cal_x - search_margin_x - center_x,
-                "top": monitor["top"] + cal_y - search_margin_y - center_y,
-                "width": (search_margin_x * 2) + template_w,
-                "height": (search_margin_y * 2) + template_h,
-                "mon": monitor["name"]
-            }
+            # Define search region with gold standard margins
+            vertical_margin = 100  # Gold standard: 100px
+            horizontal_margin = 50  # Gold standard: 50px
             
-            # Take screenshot of search region
-            with mss.mss() as sct:
-                screenshot = np.array(sct.grab(search_region))
-            img_bgr = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
+            search_top = max(0, cal_y - vertical_margin)
+            search_bottom = min(screen_h, cal_y + vertical_margin)
+            search_left = max(0, cal_x - horizontal_margin)
+            search_right = min(screen_w, cal_x + horizontal_margin)
             
-            # Save search region for debugging
-            debug_search = img_bgr.copy()
-            # Draw calibration point (should be at center of search region)
-            center_search_x = search_margin_x + center_x
-            center_search_y = search_margin_y + center_y
-            cv2.circle(debug_search, (center_search_x, center_search_y), 3, (0, 0, 255), -1)
-            # Draw template box
-            cv2.rectangle(debug_search, 
-                         (center_search_x - center_x, center_search_y - center_y),
-                         (center_search_x + center_x, center_search_y + center_y),
-                         (0, 255, 0), 1)
-            cv2.imwrite(str(self.debug_dir / f'search_region_{button["index"]}.png'), debug_search)
-            
-            # Find matches
-            result = cv2.matchTemplate(img_bgr, template, cv2.TM_CCORR_NORMED)
-            locations = np.where(result >= confidence_threshold)
-            
-            logger.info(f"Found {len(locations[0])} potential matches for button {button['index']}")
-            
-            best_match = None
-            best_confidence = 0
-            
-            for pt in zip(*locations[::-1]):  # Switch columns and rows
-                # Calculate monitor-relative coordinates
-                match_x = cal_x - search_margin_x + pt[0]
-                match_y = cal_y - search_margin_y + pt[1]
+            # Validate search region
+            if search_right <= search_left or search_bottom <= search_top:
+                logger.error(f"Invalid search region: [{search_left}:{search_right}, {search_top}:{search_bottom}]")
+                continue
                 
-                # Calculate distance from calibration point
-                distance = ((match_x - cal_x) ** 2 + (match_y - cal_y) ** 2) ** 0.5
-                confidence = result[pt[1], pt[0]]
+            # Extract search region
+            try:
+                img_bgr = screen_bgr[search_top:search_bottom, search_left:search_right]
+                if img_bgr is None or img_bgr.size == 0:
+                    logger.error("Failed to extract search region or empty region")
+                    continue
+                    
+                logger.info(f"Search region dimensions: {img_bgr.shape[1]}x{img_bgr.shape[0]}")
                 
-                logger.info(f"\nFound match:")
-                logger.info(f"  Template position in search region: ({pt[0]}, {pt[1]})")
-                logger.info(f"  Monitor-relative position: ({match_x}, {match_y})")
-                logger.info(f"  Distance from calibration: {distance:.1f}px")
-                logger.info(f"  Confidence: {confidence:.3f}")
+                # Get edge images for first pass
+                img_edges = self.preprocess_with_edges(img_bgr)
+                template_edges = self.preprocess_with_edges(template)
                 
-                # Save match region for debugging
-                match_region = {
-                    "left": monitor["left"] + match_x - center_x,
-                    "top": monitor["top"] + match_y - center_y,
-                    "width": template_w,
-                    "height": template_h,
-                    "mon": monitor["name"]
-                }
+                # Try gold standard scales
+                scales = [0.995, 1.0, 1.005]  # Gold standard scale range
+                best_match = None
+                best_quality = 0
                 
-                with mss.mss() as sct:
-                    match_img = np.array(sct.grab(match_region))
-                match_bgr = cv2.cvtColor(match_img, cv2.COLOR_BGRA2BGR)
-                cv2.imwrite(str(self.debug_dir / f'match_{button["index"]}_{len(matches)}.png'), match_bgr)
-                
-                # Verify match with multiple metrics
-                is_match, match_confidence = self.verify_match(match_bgr, template, confidence_threshold)
-                
-                if is_match and match_confidence > best_confidence:
-                    best_confidence = match_confidence
-                    best_match = {
-                        'button_index': button['index'],
-                        'x': match_x,
-                        'y': match_y,
-                        'confidence': match_confidence,
-                        'template': template,
-                        'distance': distance
-                    }
+                for scale in scales:
+                    # Scale template
+                    if scale != 1.0:
+                        scaled_w = int(template_w * scale)
+                        scaled_h = int(template_h * scale)
+                        scaled_template = cv2.resize(template, (scaled_w, scaled_h),
+                                                  interpolation=cv2.INTER_NEAREST)
+                        scaled_template_edges = cv2.resize(template_edges, (scaled_w, scaled_h),
+                                                        interpolation=cv2.INTER_NEAREST)
+                    else:
+                        scaled_template = template
+                        scaled_template_edges = template_edges
+                        scaled_w, scaled_h = template_w, template_h
+                        
+                    # Skip if scaled template is too large
+                    if img_edges.shape[0] < scaled_h or img_edges.shape[1] < scaled_w:
+                        logger.warning(f"Scaled template ({scaled_w}x{scaled_h}) too large for search region")
+                        continue
+                    
+                    # First pass: Match edges with lower threshold (gold standard)
+                    edge_result = cv2.matchTemplate(img_edges, scaled_template_edges, cv2.TM_CCOEFF_NORMED)
+                    edge_matches = np.where(edge_result >= 0.2)  # Gold standard threshold
+                    
+                    logger.info(f"Found {len(edge_matches[0])} potential matches at scale {scale:.3f}")
+                    
+                    for pt in zip(*edge_matches[::-1]):
+                        # Calculate monitor-relative coordinates
+                        match_x = search_left + pt[0] + scaled_w // 2
+                        match_y = search_top + pt[1] + scaled_h // 2
+                        
+                        # Extract match region for verification
+                        match_left = match_x - template_w // 2
+                        match_top = match_y - template_h // 2
+                        match_right = match_left + template_w
+                        match_bottom = match_top + template_h
+                        
+                        # Ensure match region is within bounds
+                        if (match_left < 0 or match_right > screen_w or
+                            match_top < 0 or match_bottom > screen_h):
+                            continue
+                        
+                        try:
+                            match_region = screen_bgr[match_top:match_bottom, match_left:match_right]
+                            if match_region is None or match_region.size == 0:
+                                continue
+                                
+                            # Calculate match quality components (gold standard weights)
+                            direct_conf = cv2.matchTemplate(match_region, template, cv2.TM_CCORR_NORMED)[0][0]
+                            edge_conf = edge_result[pt[1], pt[0]]
+                            
+                            # Calculate edge overlap
+                            match_edges = self.preprocess_with_edges(match_region)
+                            edge_overlap = np.sum(match_edges & template_edges) / np.sum(template_edges)
+                            
+                            # Gold standard weighted scoring
+                            match_quality = (direct_conf * 0.65 + edge_overlap * 0.20 + edge_conf * 0.15)
+                            
+                            if match_quality > best_quality:
+                                best_quality = match_quality
+                                best_match = {
+                                    'x': match_x,
+                                    'y': match_y,
+                                    'confidence': match_quality,
+                                    'scale': scale,
+                                    'button_index': button["index"]
+                                }
+                        except Exception as e:
+                            logger.error(f"Error processing match region: {str(e)}")
+                            continue
+                            
+            except Exception as e:
+                logger.error(f"Error processing search region: {str(e)}")
+                continue
             
-            if best_match:
+            if best_match is not None:
                 matches.append(best_match)
                 logger.info(f"\nBest match for button {button['index']}:")
                 logger.info(f"  Position: ({best_match['x']}, {best_match['y']})")
-                logger.info(f"  Distance: {best_match['distance']:.1f}px")
-                logger.info(f"  Confidence: {best_match['confidence']:.3f}")
+                logger.info(f"  Scale: {best_match['scale']:.3f}")
+                logger.info(f"  Quality: {best_match['confidence']:.3f}")
         
-        return matches
-        
-    def create_visualization(self, monitor, matches):
-        """Create a visualization of the matches on the screen."""
-        logger.info("Creating visualization of matches...")
-        
-        # Take a full screenshot
-        with mss.mss() as sct:
-            screenshot = sct.grab(monitor)
-            screen = Image.frombytes('RGB', screenshot.size, screenshot.rgb)
-            
-        # Create a drawing context
-        draw = ImageDraw.Draw(screen)
-        
-        # Colors for different buttons
-        colors = ['red', 'green', 'blue']
-        
-        # Draw matches
-        for match in matches:
-            x, y = match['x'], match['y']
-            template = match['template']
-            h, w = template.shape[:2]
-            confidence = match['confidence']
-            button_index = match['button_index']
-            color = colors[(button_index - 1) % len(colors)]
-            
-            # Draw rectangle around match
-            draw.rectangle(
-                [(x, y), (x + w, y + h)],
-                outline=color,
-                width=2
-            )
-            
-            # Draw text with button index, confidence, and distances
-            text = f"Button {button_index} ({confidence:.2f})"
-            text2 = f"H: {match['h_distance']}px V: {match['v_distance']}px"
-            draw.text((x, y - 30), text, fill=color)
-            draw.text((x, y - 15), text2, fill=color)
-            
-        # Save visualization
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        vis_path = self.debug_dir / f'matches_{timestamp}.png'
-        screen.save(vis_path)
-        logger.info(f"Saved visualization to: {vis_path}")
-        
-        return vis_path 
+        return matches 

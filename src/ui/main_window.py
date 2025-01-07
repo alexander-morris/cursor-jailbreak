@@ -11,6 +11,7 @@ from pathlib import Path
 from PIL import Image, ImageTk
 import time
 import traceback
+import pyautogui
 from src.core.calibrator import Calibrator
 from src.core.button_detector import ButtonDetector
 from src.utils.config import ClickBotConfig
@@ -30,6 +31,11 @@ class MainWindow:
         self.calibrator = Calibrator()
         self.detector = ButtonDetector()
         self.settings = Settings()
+        self.is_clicking = False  # Track clicking state
+        
+        # Configure pyautogui
+        pyautogui.PAUSE = 0.1  # Add small delay between actions
+        pyautogui.FAILSAFE = True  # Enable failsafe
         
         # Get list of monitors
         try:
@@ -73,6 +79,21 @@ class MainWindow:
                 command=self._on_monitor_selected
             ).pack(side=tk.LEFT, padx=5)
             
+        # Button count selection
+        button_count_frame = ttk.LabelFrame(self.root, text="Number of Buttons", padding=10)
+        button_count_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.button_count_var = tk.IntVar(value=3)  # Default to 3 buttons
+        ttk.Label(button_count_frame, text="Select number of buttons to calibrate:").pack(side=tk.LEFT, padx=5)
+        button_count_spinbox = ttk.Spinbox(
+            button_count_frame,
+            from_=1,
+            to=10,
+            width=5,
+            textvariable=self.button_count_var
+        )
+        button_count_spinbox.pack(side=tk.LEFT, padx=5)
+            
         # Calibration frame
         calibration_frame = ttk.LabelFrame(self.root, text="Calibration", padding=10)
         calibration_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -103,6 +124,24 @@ class MainWindow:
             text="Test Calibration",
             command=self._test_calibration
         ).pack(side=tk.LEFT, padx=5)
+        
+        # Auto-clicking frame
+        clicking_frame = ttk.LabelFrame(self.root, text="Auto Clicking", padding=10)
+        clicking_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.clicking_button = ttk.Button(
+            clicking_frame,
+            text="Start Clicking",
+            command=self._toggle_clicking
+        )
+        self.clicking_button.pack(side=tk.LEFT, padx=5)
+        
+        self.clicking_status = ttk.Label(
+            clicking_frame,
+            text="Status: Stopped",
+            foreground="red"
+        )
+        self.clicking_status.pack(side=tk.LEFT, padx=5)
         
         # Log frame
         log_frame = ttk.LabelFrame(self.root, text="Log", padding=10)
@@ -157,12 +196,15 @@ class MainWindow:
             # Add monitor index for mss
             monitor['mon'] = monitor_index + 1  # mss uses 1-based indices
             
+            # Get number of buttons to calibrate
+            num_buttons = self.button_count_var.get()
+            
             # Calibrate each button
             button_data = []
-            for i in range(1, 4):  # 3 buttons
+            for i in range(1, num_buttons + 1):
                 logger.info(f"Calibrating button {i}...")
                 self.instructions_label.config(
-                    text=f"Calibrating button {i}...\nHover over the button and wait for countdown"
+                    text=f"Calibrating button {i} of {num_buttons}...\nHover over the button and wait for countdown"
                 )
                 self.root.update()
                 
@@ -180,7 +222,7 @@ class MainWindow:
             self._update_calibration_status()
             
             # Show success message in instructions
-            self.instructions_label.config(text="Calibration completed successfully!")
+            self.instructions_label.config(text=f"Calibration completed successfully for {num_buttons} buttons!")
             
         except Exception as e:
             logger.error(f"Failed to calibrate: {e}")
@@ -278,6 +320,96 @@ class MainWindow:
             logger.error(f"Failed to show visualization: {e}")
             logger.error(traceback.format_exc())
             messagebox.showerror("Error", f"Failed to show visualization: {e}")
+        
+    def _toggle_clicking(self):
+        """Toggle the auto-clicking state."""
+        try:
+            if not self.is_clicking:
+                # Check calibration
+                monitor_index = self.monitor_var.get()
+                monitor = self.monitors[monitor_index]
+                
+                if not self.calibrator.check_calibration_data(monitor):
+                    messagebox.showerror("Error", "Please calibrate the buttons first.")
+                    return
+                
+                # Start clicking
+                self.is_clicking = True
+                self.clicking_button.config(text="Stop Clicking")
+                self.clicking_status.config(text="Status: Running", foreground="green")
+                
+                # Add monitor index for mss
+                monitor['mon'] = monitor_index + 1  # mss uses 1-based indices
+                
+                # Load calibration data
+                self.button_data = self.calibrator.load_calibration_data(monitor)
+                
+                # Start checking for buttons
+                self.root.after(100, self._check_and_click)
+                logger.info("Auto-clicking started")
+                
+            else:
+                # Stop clicking
+                self.is_clicking = False
+                self.clicking_button.config(text="Start Clicking")
+                self.clicking_status.config(text="Status: Stopped", foreground="red")
+                logger.info("Auto-clicking stopped")
+                
+        except Exception as e:
+            logger.error(f"Failed to toggle clicking: {e}")
+            logger.error(traceback.format_exc())
+            messagebox.showerror("Error", f"Failed to toggle clicking: {e}")
+            self.is_clicking = False
+            self.clicking_button.config(text="Start Clicking")
+            self.clicking_status.config(text="Status: Error", foreground="red")
+            
+    def _check_and_click(self):
+        """Check for buttons and click them if found."""
+        try:
+            if not self.is_clicking:
+                return
+                
+            monitor_index = self.monitor_var.get()
+            monitor = self.monitors[monitor_index]
+            monitor['mon'] = monitor_index + 1
+            
+            # Find matches
+            matches = self.detector.find_matches(monitor, self.button_data)
+            
+            if matches:
+                logger.info(f"Found {len(matches)} buttons to click")
+                for match in matches:
+                    # Get button coordinates
+                    x, y = int(match['x']), int(match['y'])
+                    logger.info(f"Clicking button {match['button_index']} at ({x}, {y})")
+                    
+                    # Convert monitor-relative coordinates to screen coordinates
+                    screen_x = monitor['left'] + x
+                    screen_y = monitor['top'] + y
+                    
+                    # Move mouse and click
+                    try:
+                        # Move mouse smoothly to button
+                        pyautogui.moveTo(screen_x, screen_y, duration=0.2)
+                        # Click and wait briefly
+                        pyautogui.click(screen_x, screen_y)
+                        time.sleep(0.1)  # Wait for click to register
+                    except pyautogui.FailSafeException:
+                        logger.warning("Failsafe triggered - mouse moved to corner")
+                        self.is_clicking = False
+                        self.clicking_button.config(text="Start Clicking")
+                        self.clicking_status.config(text="Status: Stopped (Failsafe)", foreground="red")
+                        return
+            
+            # Schedule next check
+            self.root.after(100, self._check_and_click)
+            
+        except Exception as e:
+            logger.error(f"Error in check and click: {e}")
+            logger.error(traceback.format_exc())
+            self.is_clicking = False
+            self.clicking_button.config(text="Start Clicking")
+            self.clicking_status.config(text="Status: Error", foreground="red")
         
     def run(self):
         """Start the application."""
