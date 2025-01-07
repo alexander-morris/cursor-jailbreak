@@ -1,16 +1,21 @@
 """
-Main window UI for the Cursor Auto Accept application.
+Main window for the Cursor Auto Accept application.
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext
-import queue
-import threading
-from datetime import datetime
-from src.utils.config import ClickBotConfig
-from src.utils.logging import get_logger, QueueHandler
+from tkinter import ttk, messagebox
+import mss
+import cv2
+import numpy as np
+from pathlib import Path
+from PIL import Image, ImageTk
+import time
+import traceback
 from src.core.calibrator import Calibrator
 from src.core.button_detector import ButtonDetector
+from src.utils.config import ClickBotConfig
+from src.utils.logging import get_logger
+from src.utils.settings import Settings
 
 logger = get_logger(__name__)
 
@@ -21,170 +26,264 @@ class MainWindow:
         self.root.title("Cursor Auto Accept")
         self.root.geometry("800x600")
         
-        # Components
+        # Initialize components
         self.calibrator = Calibrator()
         self.detector = ButtonDetector()
+        self.settings = Settings()
         
-        # State
-        self.is_running = False
-        self.log_queue = queue.Queue()
-        self.current_monitor = None
-        
-        self._init_ui()
-        self._setup_logging()
-        
-    def _init_ui(self):
-        """Initialize the user interface."""
-        # Create main container
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Monitor selection
-        monitor_frame = ttk.LabelFrame(main_frame, text="Monitor", padding="5")
-        monitor_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
-        
-        ttk.Label(monitor_frame, text="Select Monitor:").grid(row=0, column=0, padx=5)
-        self.monitor_var = tk.StringVar(value="0")
-        monitor_combo = ttk.Combobox(monitor_frame, textvariable=self.monitor_var)
-        monitor_combo['values'] = [str(i) for i in range(len(self.detector.monitors))]
-        monitor_combo.grid(row=0, column=1, padx=5)
-        monitor_combo.bind('<<ComboboxSelected>>', self._on_monitor_selected)
-        
-        # Calibration section
-        cal_frame = ttk.LabelFrame(main_frame, text="Calibration", padding="5")
-        cal_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        
-        ttk.Button(cal_frame, text="Start Calibration", 
-                  command=self._start_calibration).grid(row=0, column=0, pady=5)
-        ttk.Button(cal_frame, text="Test Detection", 
-                  command=self._test_detection).grid(row=1, column=0, pady=5)
-        
-        self.cal_status = ttk.Label(cal_frame, text="Not calibrated")
-        self.cal_status.grid(row=2, column=0, pady=5)
-        
-        # Control section
-        control_frame = ttk.LabelFrame(main_frame, text="Control", padding="5")
-        control_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        
-        self.start_btn = ttk.Button(control_frame, text="Start", 
-                                  command=self._toggle_running)
-        self.start_btn.grid(row=0, column=0, pady=5)
-        
-        self.status_label = ttk.Label(control_frame, text="Stopped")
-        self.status_label.grid(row=1, column=0, pady=5)
-        
-        # Log section
-        log_frame = ttk.LabelFrame(main_frame, text="Log", padding="5")
-        log_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=15)
-        self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Configure grid weights
-        self.root.grid_rowconfigure(0, weight=1)
-        self.root.grid_columnconfigure(0, weight=1)
-        main_frame.grid_rowconfigure(2, weight=1)
-        main_frame.grid_columnconfigure(0, weight=1)
-        main_frame.grid_columnconfigure(1, weight=1)
-        
-    def _setup_logging(self):
-        """Set up logging to UI."""
-        self.log_handler = _QueueHandler(self.log_queue)
-        logger.addHandler(self.log_handler)
-        self.root.after(100, self._poll_log_queue)
-        
-    def _poll_log_queue(self):
-        """Check for new log records."""
-        while True:
-            try:
-                record = self.log_queue.get_nowait()
-                self.log_text.insert(tk.END, record + '\n')
-                self.log_text.see(tk.END)
-            except queue.Empty:
-                break
-        self.root.after(100, self._poll_log_queue)
-        
-    def _on_monitor_selected(self, event):
-        """Handle monitor selection."""
-        monitor_index = int(self.monitor_var.get())
-        self.current_monitor = self.detector.monitors[monitor_index]
-        logger.info(f"Selected monitor {monitor_index}")
-        
-        # Update calibration status
-        if self.calibrator.check_calibration_data(self.current_monitor["name"]):
-            self.cal_status.config(text="Calibrated")
-        else:
-            self.cal_status.config(text="Not calibrated")
+        # Get list of monitors
+        try:
+            with mss.mss() as sct:
+                self.monitors = sct.monitors[1:]  # Skip primary monitor
+                
+            # Log monitor info
+            for i, m in enumerate(self.monitors):
+                logger.info(f"Found monitor {i}: {m['width']}x{m['height']} at ({m['left']}, {m['top']})")
+                
+            # Create UI elements
+            self._create_widgets()
             
+            # Load last monitor selection
+            last_monitor = self.settings.get_last_monitor()
+            if last_monitor is not None and last_monitor < len(self.monitors):
+                self.monitor_var.set(last_monitor)
+                
+            # Update calibration status
+            self._update_calibration_status()
+                
+        except Exception as e:
+            logger.error(f"Failed to initialize application: {e}")
+            logger.error(traceback.format_exc())
+            messagebox.showerror("Error", f"Failed to initialize application: {e}")
+            raise
+            
+    def _create_widgets(self):
+        """Create the UI widgets."""
+        # Monitor selection
+        monitor_frame = ttk.LabelFrame(self.root, text="Monitor Selection", padding=10)
+        monitor_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.monitor_var = tk.IntVar(value=0)
+        for i, m in enumerate(self.monitors):
+            ttk.Radiobutton(
+                monitor_frame,
+                text=f"Monitor {i} ({m['width']}x{m['height']})",
+                variable=self.monitor_var,
+                value=i,
+                command=self._on_monitor_selected
+            ).pack(side=tk.LEFT, padx=5)
+            
+        # Calibration frame
+        calibration_frame = ttk.LabelFrame(self.root, text="Calibration", padding=10)
+        calibration_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.calibration_status = ttk.Label(calibration_frame, text="Not calibrated")
+        self.calibration_status.pack(side=tk.TOP, pady=5)
+        
+        # Instructions label
+        self.instructions_label = ttk.Label(
+            calibration_frame,
+            text="Click 'Start Calibration' to begin",
+            wraplength=600,
+            justify=tk.LEFT
+        )
+        self.instructions_label.pack(side=tk.TOP, pady=5)
+        
+        button_frame = ttk.Frame(calibration_frame)
+        button_frame.pack(side=tk.TOP, pady=5)
+        
+        ttk.Button(
+            button_frame,
+            text="Start Calibration",
+            command=self._start_calibration
+        ).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(
+            button_frame,
+            text="Test Calibration",
+            command=self._test_calibration
+        ).pack(side=tk.LEFT, padx=5)
+        
+        # Log frame
+        log_frame = ttk.LabelFrame(self.root, text="Log", padding=10)
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        self.log_text = tk.Text(log_frame, height=10)
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+        
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(log_frame, orient=tk.VERTICAL, command=self.log_text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.log_text.configure(yscrollcommand=scrollbar.set)
+        
+    def _update_calibration_status(self):
+        """Update the calibration status label."""
+        try:
+            monitor_index = self.monitor_var.get()
+            monitor = self.monitors[monitor_index]
+            
+            if self.calibrator.check_calibration_data(monitor):
+                self.calibration_status.config(text="Calibrated")
+                self.instructions_label.config(text="Click 'Test Calibration' to verify the calibration")
+            else:
+                self.calibration_status.config(text="Not calibrated")
+                self.instructions_label.config(text="Click 'Start Calibration' to begin")
+                
+        except Exception as e:
+            logger.error(f"Failed to update calibration status: {e}")
+            logger.error(traceback.format_exc())
+            self.calibration_status.config(text="Error checking calibration")
+        
+    def _on_monitor_selected(self):
+        """Handle monitor selection."""
+        try:
+            monitor_index = self.monitor_var.get()
+            logger.info(f"Selected monitor {monitor_index}")
+            self.settings.save_last_monitor(monitor_index)
+            self._update_calibration_status()
+            
+        except Exception as e:
+            logger.error(f"Failed to handle monitor selection: {e}")
+            logger.error(traceback.format_exc())
+            messagebox.showerror("Error", f"Failed to select monitor: {e}")
+        
     def _start_calibration(self):
         """Start the calibration process."""
-        if not self.current_monitor:
-            logger.error("No monitor selected!")
-            return
+        try:
+            monitor_index = self.monitor_var.get()
+            monitor = self.monitors[monitor_index]
+            logger.info(f"Starting calibration for monitor {monitor_index}")
             
-        def calibrate():
-            logger.info("Starting calibration...")
-            for i in range(1, 4):
+            # Add monitor index for mss
+            monitor['mon'] = monitor_index + 1  # mss uses 1-based indices
+            
+            # Calibrate each button
+            button_data = []
+            for i in range(1, 4):  # 3 buttons
                 logger.info(f"Calibrating button {i}...")
-                logger.info("Move mouse over button and wait...")
-                self.calibrator.capture_button_state(i, self.current_monitor)
-            logger.info("Calibration complete!")
-            self.cal_status.config(text="Calibrated")
+                self.instructions_label.config(
+                    text=f"Calibrating button {i}...\nHover over the button and wait for countdown"
+                )
+                self.root.update()
+                
+                x, y, pre_click, post_click = self.calibrator.capture_button_state(i, monitor)
+                button_data.append({
+                    'index': i,
+                    'x': x,
+                    'y': y,
+                    'template': pre_click
+                })
+                
+                logger.info(f"Captured button {i} at ({x}, {y})")
+                
+            # Update calibration status
+            self._update_calibration_status()
             
-        thread = threading.Thread(target=calibrate)
-        thread.daemon = True
-        thread.start()
-        
-    def _test_detection(self):
-        """Test button detection."""
-        if not self.current_monitor:
-            logger.error("No monitor selected!")
-            return
+            # Show success message in instructions
+            self.instructions_label.config(text="Calibration completed successfully!")
             
-        def test():
-            logger.info("Testing button detection...")
-            buttons = self.calibrator.load_calibration_data(self.current_monitor["name"])
-            if not buttons:
-                logger.error("No calibration data found!")
+        except Exception as e:
+            logger.error(f"Failed to calibrate: {e}")
+            logger.error(traceback.format_exc())
+            messagebox.showerror("Error", f"Failed to calibrate: {e}")
+            self.instructions_label.config(text="Calibration failed. Please try again.")
+            
+    def _test_calibration(self):
+        """Test the calibration by finding matches."""
+        try:
+            monitor_index = self.monitor_var.get()
+            monitor = self.monitors[monitor_index]
+            
+            # Add monitor index for mss
+            monitor['mon'] = monitor_index + 1  # mss uses 1-based indices
+            
+            # Update instructions
+            self.instructions_label.config(text="Testing calibration...")
+            self.root.update()
+            
+            # Load calibration data
+            button_data = self.calibrator.load_calibration_data(monitor)
+            if not button_data:
+                self.instructions_label.config(text="No calibration data found. Please calibrate first.")
                 return
                 
-            for button in buttons:
-                matches = self.detector.find_matches(
-                    button["template"],
-                    self.current_monitor,
-                    button["x"],
-                    button["y"]
-                )
-                logger.info(f"Found {len(matches)} matches for button {button['index']}")
-                for i, match in enumerate(matches, 1):
-                    logger.info(f"Match {i}: pos=({match['x']}, {match['y']}), conf={match['confidence']:.3f}")
-                    
-        thread = threading.Thread(target=test)
-        thread.daemon = True
-        thread.start()
-        
-    def _toggle_running(self):
-        """Toggle the running state."""
-        self.is_running = not self.is_running
-        if self.is_running:
-            self.start_btn.config(text="Stop")
-            self.status_label.config(text="Running")
-            logger.info("Started monitoring")
-        else:
-            self.start_btn.config(text="Start")
-            self.status_label.config(text="Stopped")
-            logger.info("Stopped monitoring")
+            # Find matches
+            matches = self.detector.find_matches(monitor, button_data)
             
-    def run(self):
-        """Start the main event loop."""
-        self.root.mainloop()
-
-
-class _QueueHandler:
-    def __init__(self, queue):
-        self.queue = queue
+            if not matches:
+                self.instructions_label.config(text="No matches found in current screen.")
+                return
+                
+            # Create visualization
+            vis_path = self.detector.create_visualization(monitor, matches)
+            
+            # Show visualization in new window
+            self._show_visualization(vis_path)
+            
+            # Update instructions
+            self.instructions_label.config(text=f"Found {len(matches)} matches. Check the visualization window.")
+            
+        except Exception as e:
+            logger.error(f"Failed to test calibration: {e}")
+            logger.error(traceback.format_exc())
+            messagebox.showerror("Error", f"Failed to test calibration: {e}")
+            self.instructions_label.config(text="Testing failed. Please try again.")
         
-    def emit(self, record):
-        """Add formatted log message to queue."""
-        msg = f"{datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S')} - {record.levelname} - {record.getMessage()}"
-        self.queue.put(msg) 
+    def _show_visualization(self, image_path):
+        """Show the visualization in a new window."""
+        try:
+            vis_window = tk.Toplevel(self.root)
+            vis_window.title("Calibration Test Results")
+            
+            # Load and resize image if needed
+            image = Image.open(image_path)
+            
+            # Get screen dimensions
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+            
+            # Calculate scaling factor to fit screen
+            scale_width = screen_width / image.width
+            scale_height = screen_height / image.height
+            scale = min(scale_width, scale_height, 1.0)  # Don't upscale
+            
+            if scale < 1.0:
+                new_width = int(image.width * scale)
+                new_height = int(image.height * scale)
+                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                
+            # Convert to PhotoImage
+            photo = ImageTk.PhotoImage(image)
+            
+            # Create canvas to display image
+            canvas = tk.Canvas(
+                vis_window,
+                width=image.width,
+                height=image.height
+            )
+            canvas.pack()
+            
+            # Display image
+            canvas.create_image(0, 0, anchor=tk.NW, image=photo)
+            canvas.image = photo  # Keep reference
+            
+            # Add close button
+            ttk.Button(
+                vis_window,
+                text="Close",
+                command=vis_window.destroy
+            ).pack(pady=10)
+            
+        except Exception as e:
+            logger.error(f"Failed to show visualization: {e}")
+            logger.error(traceback.format_exc())
+            messagebox.showerror("Error", f"Failed to show visualization: {e}")
+        
+    def run(self):
+        """Start the application."""
+        try:
+            self.root.mainloop()
+        except Exception as e:
+            logger.error(f"Application crashed: {e}")
+            logger.error(traceback.format_exc())
+            messagebox.showerror("Error", f"Application crashed: {e}") 

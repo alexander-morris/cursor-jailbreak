@@ -30,7 +30,7 @@ def get_monitor():
 
 def load_calibration_data():
     """Load calibration data from assets directory"""
-    assets_dir = Path('assets/monitor_0')
+    assets_dir = Path('assets/monitor_2')
     if not assets_dir.exists():
         print("No calibration data found!")
         return None

@@ -28,6 +28,16 @@ def get_monitor():
     print(f"Using monitor 2: {target_monitor['width']}x{target_monitor['height']} at ({target_monitor['left']}, {target_monitor['top']})")
     return target_monitor
 
+def validate_coordinates(x, y, monitor):
+    """Validate that coordinates are within monitor bounds"""
+    if x < 0 or x >= monitor["width"]:
+        print(f"X coordinate {x} is outside monitor bounds (0-{monitor['width']})")
+        return False
+    if y < 0 or y >= monitor["height"]:
+        print(f"Y coordinate {y} is outside monitor bounds (0-{monitor['height']})")
+        return False
+    return True
+
 def capture_button(monitor, button_num):
     """Capture pre and post click images and coordinates for a button"""
     print(f"\nCalibrating Button {button_num}:")
@@ -39,6 +49,11 @@ def capture_button(monitor, button_num):
     rel_x = mouse_x - monitor["left"]
     rel_y = mouse_y - monitor["top"]
     print(f"Mouse position: ({rel_x}, {rel_y})")
+    
+    # Validate coordinates
+    if not validate_coordinates(rel_x, rel_y, monitor):
+        print("Please move mouse within monitor bounds and try again")
+        return capture_button(monitor, button_num)
     
     # Create monitor region for screenshot
     monitor_region = {
@@ -54,9 +69,11 @@ def capture_button(monitor, button_num):
         screen = np.array(sct.grab(monitor_region))
     pre_click = cv2.cvtColor(screen, cv2.COLOR_BGRA2BGR)
     
+    # Calculate button region bounds
+    button_x = max(0, min(rel_x - 35, monitor["width"] - 70))  # Ensure within bounds
+    button_y = max(0, min(rel_y - 10, monitor["height"] - 20))  # Ensure within bounds
+    
     # Extract button region (70x20 pixels centered on mouse)
-    button_x = rel_x - 35  # Half of 70
-    button_y = rel_y - 10  # Half of 20
     button_region = pre_click[button_y:button_y+20, button_x:button_x+70]
     
     # Save coordinates
