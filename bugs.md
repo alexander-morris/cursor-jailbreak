@@ -115,3 +115,182 @@ New test cases needed for:
 3. Match quality scoring
 4. Performance benchmarking
 5. Error recovery scenarios 
+
+## Implementation Plan
+
+### Affected Modules and Required Changes
+
+#### 1. `src/core/button_detector.py`
+- Add edge detection preprocessing
+- Implement multi-scale template matching
+- Enhance match scoring system
+- Add debug visualization for each stage
+
+Required Changes:
+```python
+# New methods needed:
+def preprocess_with_edges(self, image):
+    """Edge detection preprocessing with Canny"""
+
+def find_matches_multi_scale(self, image, template, scales=[0.995, 1.0, 1.005]):
+    """Multi-scale template matching"""
+
+def calculate_edge_overlap(self, region, template):
+    """Calculate edge overlap ratio between region and template"""
+
+def compute_match_quality(self, direct_score, edge_score, overlap_ratio):
+    """Compute weighted match quality score"""
+```
+
+Test Cases:
+1. Edge Detection
+   - Test with high-contrast buttons
+   - Test with low-contrast buttons
+   - Verify edge detection parameters
+   - Check edge continuity
+
+2. Multi-Scale Matching
+   - Test with exact size matches
+   - Test with slightly smaller templates
+   - Test with slightly larger templates
+   - Verify scale interpolation quality
+
+3. Match Quality Scoring
+   - Test perfect matches (expect >0.95)
+   - Test partial matches (expect 0.75-0.95)
+   - Test non-matches (expect <0.5)
+   - Verify weight distribution
+
+#### 2. `src/core/calibrator.py`
+- Add validation of calibration data
+- Enhance template extraction
+- Add multi-scale template generation
+
+Required Changes:
+```python
+# New methods needed:
+def validate_calibration_data(self, templates):
+    """Validate quality of calibration templates"""
+
+def extract_template_multi_scale(self, image, position):
+    """Extract and generate multi-scale templates"""
+
+def verify_template_quality(self, template):
+    """Verify template has sufficient features for matching"""
+```
+
+Test Cases:
+1. Template Extraction
+   - Test clear button captures
+   - Test noisy button captures
+   - Verify template centering
+   - Check template size consistency
+
+2. Calibration Validation
+   - Test with good calibration data
+   - Test with poor quality captures
+   - Verify error handling
+   - Check boundary conditions
+
+#### 3. `src/utils/debug.py` (New File)
+- Create comprehensive debug visualization
+- Add logging for each algorithm stage
+- Generate quality metrics reports
+
+Required Changes:
+```python
+# New methods needed:
+def visualize_edge_detection(self, original, edges):
+    """Show edge detection results"""
+
+def visualize_multi_scale_matches(self, image, matches, scales):
+    """Show matches at different scales"""
+
+def generate_match_quality_report(self, matches):
+    """Generate detailed match quality report"""
+```
+
+Test Cases:
+1. Debug Visualization
+   - Test edge detection visualization
+   - Test match visualization
+   - Verify debug image quality
+   - Check all stages are captured
+
+2. Quality Reporting
+   - Test report generation
+   - Verify metrics calculation
+   - Check report completeness
+   - Validate data formatting
+
+### Testing Strategy
+
+#### 1. Unit Tests
+- Create test fixtures with known good/bad matches
+- Test each component in isolation
+- Verify edge cases and boundary conditions
+- Measure performance metrics
+
+#### 2. Integration Tests
+- Test interaction between components
+- Verify data flow between stages
+- Check error handling between modules
+- Validate debug output integration
+
+#### 3. Performance Tests
+- Measure processing time per stage
+- Compare memory usage
+- Verify scaling with image size
+- Test with different load conditions
+
+### Implementation Order
+
+1. Edge Detection (1-2 days)
+   - Implement basic edge detection
+   - Tune parameters
+   - Add visualization
+   - Write unit tests
+
+2. Multi-Scale Matching (2-3 days)
+   - Implement scale generation
+   - Add template matching at each scale
+   - Optimize performance
+   - Write unit tests
+
+3. Match Quality Scoring (1-2 days)
+   - Implement scoring system
+   - Add weight configuration
+   - Create validation tests
+   - Write unit tests
+
+4. Debug System (1-2 days)
+   - Create visualization pipeline
+   - Add logging system
+   - Implement reporting
+   - Write integration tests
+
+5. Calibration Improvements (2-3 days)
+   - Enhance template extraction
+   - Add validation
+   - Implement multi-scale support
+   - Write system tests
+
+### Success Metrics
+
+1. Accuracy Metrics
+   - False positive rate < 1%
+   - False negative rate < 1%
+   - Match quality > 0.95 for correct matches
+   - Edge detection accuracy > 90%
+
+2. Performance Metrics
+   - Processing time < 100ms per frame
+   - Memory usage < 200MB
+   - CPU usage < 25%
+   - Scale linearly with image size
+
+3. Robustness Metrics
+   - Handle 20% size variations
+   - Work with contrast variations
+   - Recover from bad frames
+   - Handle resolution changes 
