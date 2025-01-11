@@ -1,27 +1,19 @@
 #!/bin/bash
 
-# Create required directories
-mkdir -p ./temp
-mkdir -p ./temp/logs
-mkdir -p ./images
-mkdir -p ./assets
+# Create necessary directories
+mkdir -p images temp/logs
 
-# Set up permissions
-chmod -R 755 ./temp
-chmod -R 755 ./images
-chmod -R 755 ./assets
+# Create virtual environment
+python3 -m venv venv
 
-# Create empty files if they don't exist
-touch ./temp/clickbot.pid
-touch ./temp/logs/clickbot.log
-
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    python3 -m venv venv
-fi
-
-# Activate virtual environment and install requirements
+# Activate virtual environment
 source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 
-echo "ClickBot directory structure initialized" 
+echo "Setup complete! Virtual environment created and dependencies installed."
+echo "Don't forget to place your image files in the images/ directory:"
+echo "- note-with-icon.png"
+echo "- note-text.png"
+echo "- composer-title.png" 
