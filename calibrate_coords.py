@@ -13,17 +13,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def wait_for_position():
-    """Wait for user to hover over a target and press Enter"""
-    logger.info("Hover over a target button and press Enter...")
+def wait_for_click():
+    """Wait for user to click and return the coordinates"""
+    logger.info("Please click on a target button...")
+    x, y = pyautogui.position()
     while True:
-        try:
-            # Check if user pressed Enter
-            if input() == '':
-                x, y = pyautogui.position()
-                return x, y
-        except KeyboardInterrupt:
-            return None, None
+        new_x, new_y = pyautogui.position()
+        if (x, y) != (new_x, new_y):
+            x, y = new_x, new_y
+        if pyautogui.mouseDown():
+            time.sleep(0.1)  # Wait for click to complete
+            return x, y
 
 def get_monitor_info():
     """Get information about all monitors"""
@@ -35,7 +35,7 @@ def get_monitor_info():
         return monitors
 
 def calibrate_coordinates():
-    """Let user hover over target buttons and save coordinates"""
+    """Let user click on target buttons and save coordinates"""
     # Get monitor info
     monitors = get_monitor_info()
     
@@ -49,8 +49,8 @@ def calibrate_coordinates():
         coords = []
     
     logger.info("\nCalibration Instructions:")
-    logger.info("1. Hover mouse over a target button")
-    logger.info("2. Press Enter to save the position")
+    logger.info("1. Click on each target button")
+    logger.info("2. Press Enter to add another target")
     logger.info("3. Type 'q' and press Enter when done")
     logger.info("4. Type 'c' and press Enter to clear all coordinates and start over")
     
@@ -70,8 +70,8 @@ def calibrate_coordinates():
             logger.info("Cleared all coordinates")
             continue
         
-        # Get current mouse position
-        x, y = pyautogui.position()
+        # Wait for click
+        x, y = wait_for_click()
         
         # Determine which monitor contains these coordinates
         monitor_index = None
