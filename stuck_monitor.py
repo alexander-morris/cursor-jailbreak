@@ -4,159 +4,119 @@ import time
 import mss
 import json
 from pathlib import Path
-import threading
+from action_controller import controller
 import sys
 
-class StuckMonitor:
-    def __init__(self):
-        self.sct = mss.mss()
-        self.calibration_file = Path('stuck_calibration.json')
-        self.last_change_time = time.time()
-        self.last_content = None
-        self.stall_threshold = 30  # 30 seconds before considering stuck
-        
-        # Set up the 30-second timeout for testing
-        self.timeout_timer = threading.Timer(30.0, self.force_quit)
-        self.timeout_timer.start()
+def wait_for_position():
+    """Wait for user to position cursor and press Enter"""
+    input("Press Enter when ready...")
+    return pyautogui.position()
+
+def select_region():
+    """Let user select region with cursor positions"""
+    print("\n=== Region Selection ===")
+    print("1. Move cursor to TOP-LEFT corner of the area to monitor")
+    x1, y1 = wait_for_position()
+    print(f"Top-left: ({x1}, {y1})")
     
-    def force_quit(self):
-        print("\nTimeout reached (30 seconds). Forcing script termination...")
-        sys.exit(0)
+    print("\n2. Move cursor to BOTTOM-RIGHT corner of the area to monitor")
+    x2, y2 = wait_for_position()
+    print(f"Bottom-right: ({x2}, {y2})")
     
-    def cleanup(self):
-        """Cleanup resources"""
-        if hasattr(self, 'timeout_timer'):
-            self.timeout_timer.cancel()
-        if hasattr(self, 'sct'):
-            self.sct.close()
+    print("\n3. Move cursor to where you want to click when inactivity is detected")
+    action_x, action_y = wait_for_position()
+    print(f"Action click position: ({action_x}, {action_y})")
     
-    def calibrate(self):
-        """Calibrate both composer area and continue button location"""
-        data = {}
-        
-        print("\nCalibration Process:")
-        print("\n1. Composer Area Calibration:")
-        print("Move cursor to TOP-LEFT corner of composer area...")
-        input("Press Enter when ready...")
-        top_left_x, top_left_y = pyautogui.position()
-        
-        print("\nMove cursor to BOTTOM-RIGHT corner of composer area...")
-        input("Press Enter when ready...")
-        bottom_right_x, bottom_right_y = pyautogui.position()
-        
-        # Calculate composer region
-        composer_region = {
-            'left': top_left_x,
-            'top': top_left_y,
-            'width': bottom_right_x - top_left_x,
-            'height': bottom_right_y - top_left_y
-        }
-        data['composer'] = composer_region
-        
-        print("\n2. Continue Button Calibration:")
-        print("Move cursor to the continue/prompt input field...")
-        input("Press Enter when ready...")
-        prompt_x, prompt_y = pyautogui.position()
-        data['prompt'] = {'x': prompt_x, 'y': prompt_y}
-        
-        # Save calibration
-        with self.calibration_file.open('w') as f:
-            json.dump(data, f)
-        
-        print("\nCalibration complete!")
-        print(f"Monitoring composer area: {composer_region['width']}x{composer_region['height']} pixels")
-        print(f"Continue button at: ({prompt_x}, {prompt_y})")
-        return data
+    # Ensure coordinates are in correct order
+    left = min(x1, x2)
+    top = min(y1, y2)
+    width = abs(x2 - x1)
+    height = abs(y2 - y1)
     
-    def load_calibration(self):
-        """Load saved calibration data"""
-        try:
-            with self.calibration_file.open('r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return None
+    region = {
+        'left': left,
+        'top': top,
+        'width': width,
+        'height': height,
+        'action_x': action_x,
+        'action_y': action_y
+    }
     
-    def check_for_changes(self, current, previous):
-        """Check if the composer content has changed"""
-        if previous is None:
-            return True
+    print(f"\nMonitoring region: {width}x{height} at ({left}, {top})")
+    print(f"Will click at ({action_x}, {action_y}) after 70 seconds of inactivity")
+    return region
+
+def capture_region(sct, region):
+    """Capture the specified region"""
+    return np.array(sct.grab(region))
+
+def check_for_changes(current, previous, threshold=2.0):
+    """Check if two captures are different"""
+    if current is None or previous is None:
+        return True
+    
+    diff = np.abs(current.astype(float) - previous.astype(float))
+    mean_diff = np.mean(diff)
+    return mean_diff > threshold
+
+def queue_stuck_action(x, y):
+    """Queue the stuck action to the controller"""
+    message = "please continue with the todo list, and be sure to test as you go, follow the process. solve one problem at a time, and add everything else to the todo list"
+    controller.queue_action(
+        'click_and_type',
+        x=x,
+        y=y,
+        message=message
+    )
+    print("Queued stuck action")
+
+def load_region():
+    """Load the saved region data"""
+    try:
+        with open('stuck_region.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("No calibration found. Please run setup_monitors.py first.")
+        sys.exit(1)
+
+def monitor_region():
+    """Main monitoring loop"""
+    # Load calibrated region
+    region = load_region()
+    
+    print(f"\nMonitoring region: {region['width']}x{region['height']} at ({region['left']}, {region['top']})")
+    print(f"Will click at ({region['action_x']}, {region['action_y']}) after 70 seconds of inactivity")
+    print("Press Ctrl+C to stop")
+    
+    with mss.mss() as sct:
+        previous_capture = None
+        last_change_time = time.time()
+        inactivity_threshold = 70  # seconds
         
-        diff = np.abs(current - previous)
-        mean_diff = np.mean(diff)
-        return mean_diff > 2  # Small threshold for visual changes
-    
-    def send_continue_message(self, prompt_x, prompt_y):
-        """Send the continue message"""
-        # Store original cursor position
-        original_x, original_y = pyautogui.position()
-        
-        try:
-            # Move to prompt and click
-            pyautogui.moveTo(prompt_x, prompt_y, duration=0.2)
-            pyautogui.click()
-            time.sleep(0.2)
-            
-            # Type continue message
-            message = "continue"
-            pyautogui.write(message)
-            time.sleep(0.2)
-            
-            # Send message (Command + Return on macOS)
-            pyautogui.hotkey('command', 'return')
-            print(f"\nSent continue message at {time.strftime('%H:%M:%S')}")
-            
-        finally:
-            # Restore cursor position
-            pyautogui.moveTo(original_x, original_y, duration=0.2)
-    
-    def run(self):
-        """Main monitoring loop"""
-        try:
-            # Load or create calibration
-            data = self.load_calibration()
-            if not data:
-                print("No calibration found.")
-                data = self.calibrate()
-            
-            print("\nMonitoring for stuck states...")
-            print("Press Ctrl+C to stop")
-            print("Script will automatically terminate after 30 seconds")
-            
-            while True:
-                try:
-                    # Capture current state of composer area
-                    current = np.array(self.sct.grab(data['composer']))
-                    
-                    # Check for changes
-                    if self.check_for_changes(current, self.last_content):
-                        self.last_change_time = time.time()
-                        print(".", end="", flush=True)  # Progress indicator
-                    
-                    # Check for stall
-                    time_since_change = time.time() - self.last_change_time
-                    if time_since_change >= self.stall_threshold:
-                        print(f"\nStuck detected! No changes for {time_since_change:.1f} seconds")
-                        self.send_continue_message(data['prompt']['x'], data['prompt']['y'])
-                        self.last_change_time = time.time()  # Reset timer
-                    
-                    # Update last content
-                    self.last_content = current
-                    
-                    # Small delay between checks
-                    time.sleep(0.5)
-                    
-                except KeyboardInterrupt:
-                    print("\nStopped by user")
-                    break
-                except Exception as e:
-                    print(f"\nError: {str(e)}")
-                    break
-        finally:
-            self.cleanup()
+        while True:
+            try:
+                current_time = time.time()
+                
+                # Capture current state
+                current_capture = capture_region(sct, region)
+                
+                # Check for changes
+                if check_for_changes(current_capture, previous_capture):
+                    last_change_time = current_time
+                    print(".", end="", flush=True)
+                elif current_time - last_change_time >= inactivity_threshold:
+                    queue_stuck_action(region['action_x'], region['action_y'])
+                    last_change_time = current_time  # Reset inactivity timer
+                
+                # Update previous capture
+                previous_capture = current_capture
+                
+                # Small delay between checks
+                time.sleep(0.5)
+                
+            except KeyboardInterrupt:
+                print("\nStopped by user")
+                break
 
 if __name__ == "__main__":
-    monitor = StuckMonitor()
-    try:
-        monitor.run()
-    finally:
-        monitor.cleanup() 
+    monitor_region() 
