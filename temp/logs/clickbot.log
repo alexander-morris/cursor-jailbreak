@@ -10,3 +10,14 @@
 
 2025-01-21 19:19:09,825 - INFO - Stopping ClickBot
 2025-01-21 19:19:09,825 - INFO - Stopping ClickBot
+2025-01-21 19:53:33,824 - INFO - ClickBot initialized - Debug: True, Interval: 3.0s, Confidence Threshold: 0.8
+2025-01-21 19:53:33,825 - INFO - Starting ClickBot
+2025-01-21 19:53:33,825 - ERROR - Reference image not found: /Users/almorris/hustlebot_clicker/images/cursor-screen-head.png
+2025-01-21 19:53:33,825 - INFO - Please ensure the images directory contains required reference images.
+2025-01-21 19:53:33,825 - INFO - See README.md for setup instructions.
+2025-01-21 19:53:33,825 - ERROR - Fatal error: Failed to find Cursor monitor
+2025-01-21 19:53:33,825 - DEBUG -   File "/Users/almorris/hustlebot_clicker/main.py", line 138, in run
+    raise RuntimeError("Failed to find Cursor monitor")
+
+2025-01-21 19:53:33,825 - INFO - Stopping ClickBot
+2025-01-21 19:53:33,825 - INFO - Stopping ClickBot
