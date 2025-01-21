@@ -39,7 +39,10 @@ class ClickBot:
         try:
             ref_image_path = os.path.join(os.path.dirname(__file__), 'images', 'cursor-screen-head.png')
             if not os.path.exists(ref_image_path):
-                raise FileNotFoundError(f"Reference image not found: {ref_image_path}")
+                self.logger.error(f"Reference image not found: {ref_image_path}")
+                self.logger.info("Please ensure the images directory contains required reference images.")
+                self.logger.info("See README.md for setup instructions.")
+                return None
 
             ref_image = Image.open(ref_image_path)
             monitors = self.matcher.get_monitors()
@@ -70,7 +73,8 @@ class ClickBot:
                 self.logger.info(f"Found Cursor monitor - Confidence: {best_confidence:.4f}")
                 return best_match
             
-            raise RuntimeError("Could not find Cursor application window")
+            self.logger.error("Could not find Cursor application window")
+            return None
             
         except Exception as e:
             log_error_with_context(self.logger, e, "Monitor detection failed")

@@ -114,8 +114,8 @@ def load_calibration():
             targets = json.load(f)
             # Convert lists back to numpy arrays
             for target in targets:
-                target['present_pixels'] = np.array(target['present_pixels'])
-                target['absent_pixels'] = np.array(target['absent_pixels'])
+                target['present_pixels'] = np.array(target['present_pixels'], dtype=np.float32)
+                target['absent_pixels'] = np.array(target['absent_pixels'], dtype=np.float32)
             return targets
     except FileNotFoundError:
         return None

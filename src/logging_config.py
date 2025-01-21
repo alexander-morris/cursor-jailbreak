@@ -37,6 +37,13 @@ def log_error_with_context(logger, error, message):
         import traceback
         logger.debug("".join(traceback.format_tb(error.__traceback__)))
 
+def log_match_result(logger, match, confidence):
+    """Log match result with confidence score"""
+    if match:
+        logger.debug(f"Match found - Confidence: {confidence:.4f} at ({match['x']}, {match['y']})")
+    else:
+        logger.debug(f"No match found - Best confidence: {confidence:.4f}")
+
 def save_debug_image(image, name, debug_dir='temp/debug'):
     """Save an image for debugging purposes"""
     if not isinstance(debug_dir, Path):

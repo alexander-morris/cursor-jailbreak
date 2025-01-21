@@ -13,6 +13,7 @@ An automated UI interaction tool with two implementations:
 │   ├── image_matcher.py     # OpenCV-based image matching
 │   ├── error_recovery.py    # Error handling and recovery
 │   └── logging_config.py    # Logging configuration
+├── images/              # Reference images directory
 ├── requirements.txt     # Python dependencies
 └── README.md           # Documentation
 ```
@@ -23,6 +24,11 @@ An automated UI interaction tool with two implementations:
 ```bash
 pip install -r requirements.txt
 ```
+
+2. Set up reference images:
+   - Create an `images` directory if it doesn't exist
+   - For `main.py`: Add `cursor-screen-head.png` (screenshot of Cursor window header)
+   - For `basic_clicker.py`: No reference images needed (uses calibration)
 
 ## Basic Clicker (basic_clicker.py)
 
