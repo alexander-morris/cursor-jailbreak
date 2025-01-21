@@ -146,15 +146,16 @@ def find_button_in_region(current_full, target_template, similarity_threshold=0.
             small_diff_ratio = np.mean(diff < 10)  # Percentage of very small differences
             similarity = (1 - np.mean(diff) / 255) * 0.7 + small_diff_ratio * 0.3  # Weighted score
             
-            # Show significant matches
-            if similarity > 0.6:  # Show more potential matches
-                print(f"Found potential match at y={y} with similarity {similarity:.3f}")
+            # Only show very strong matches
+            if similarity > 0.8:  # Show more potential matches
+                print(f"Strong match at y={y} with similarity {similarity:.3f}")
             
             if similarity > best_similarity:
                 best_similarity = similarity
                 best_y = y
         
-        print(f"Best match: y={best_y} with similarity {best_similarity:.3f}")
+        if best_similarity > 0.6:
+            print(f"Best match: y={best_y} with similarity {best_similarity:.3f}")
         return best_similarity, best_y
     except Exception as e:
         print(f"Error finding button in region: {str(e)}")
@@ -178,10 +179,9 @@ def check_button_present(current, calibration_data, similarity_threshold=0.65):
         # This means similarity_to_absent should be low (< 0.85)
         is_present = similarity_to_absent < 0.85
         
-        # Debug output for similarity scores
-        print(f"\nSimilarity scores - Present: {similarity_to_present:.3f}, Absent: {similarity_to_absent:.3f}")
+        # Only output debug info if there's a significant change
         if is_present:
-            print("MATCH DETECTED!")
+            print(f"\nMatch detected! Present: {similarity_to_present:.3f}, Absent: {similarity_to_absent:.3f}")
         
         return is_present, similarity_to_present
     except Exception as e:
