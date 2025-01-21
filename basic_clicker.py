@@ -122,59 +122,71 @@ def load_calibration():
 
 def find_button_in_region(current_full, target_template, similarity_threshold=0.65):
     """Scan the region to find the button, returns best match position"""
-    template_height, template_width = target_template.shape[:2]  # Get dimensions from template
-    best_similarity = 0
-    best_y = None
-    
-    # Debug info about scanning region
-    print(f"\nScanning region: {current_full.shape}")
-    print(f"Template size: {target_template.shape}")
-    
-    # Scan through the region vertically
-    for y in range(current_full.shape[0] - template_height):
-        # Extract a window of the same size as our template
-        window = current_full[y:y + template_height, :template_width]
-        if window.shape != target_template.shape:
-            continue
+    try:
+        current_full = current_full.astype(np.float32)
+        target_template = target_template.astype(np.float32)
+        
+        template_height, template_width = target_template.shape[:2]  # Get dimensions from template
+        best_similarity = 0
+        best_y = None
+        
+        # Debug info about scanning region
+        print(f"\nScanning region: {current_full.shape}")
+        print(f"Template size: {target_template.shape}")
+        
+        # Scan through the region vertically
+        for y in range(current_full.shape[0] - template_height):
+            # Extract a window of the same size as our template
+            window = current_full[y:y + template_height, :template_width]
+            if window.shape != target_template.shape:
+                continue
+                
+            # Calculate similarity with more weight on exact matches
+            diff = np.abs(window - target_template)
+            small_diff_ratio = np.mean(diff < 10)  # Percentage of very small differences
+            similarity = (1 - np.mean(diff) / 255) * 0.7 + small_diff_ratio * 0.3  # Weighted score
             
-        # Calculate similarity with more weight on exact matches
-        diff = np.abs(window.astype(float) - target_template.astype(float))
-        small_diff_ratio = np.mean(diff < 10)  # Percentage of very small differences
-        similarity = (1 - np.mean(diff) / 255) * 0.7 + small_diff_ratio * 0.3  # Weighted score
+            # Show significant matches
+            if similarity > 0.6:  # Show more potential matches
+                print(f"Found potential match at y={y} with similarity {similarity:.3f}")
+            
+            if similarity > best_similarity:
+                best_similarity = similarity
+                best_y = y
         
-        # Show significant matches
-        if similarity > 0.6:  # Show more potential matches
-            print(f"Found potential match at y={y} with similarity {similarity:.3f}")
-        
-        if similarity > best_similarity:
-            best_similarity = similarity
-            best_y = y
-    
-    print(f"Best match: y={best_y} with similarity {best_similarity:.3f}")
-    return best_similarity, best_y
+        print(f"Best match: y={best_y} with similarity {best_similarity:.3f}")
+        return best_similarity, best_y
+    except Exception as e:
+        print(f"Error finding button in region: {str(e)}")
+        return 0.0, None
 
 def check_button_present(current, calibration_data, similarity_threshold=0.65):
     """Check if button is present using both calibrated states"""
-    present_ref = calibration_data['present_pixels']
-    absent_ref = calibration_data['absent_pixels']
-    
-    # Calculate similarity with more weight on exact matches
-    diff_present = np.abs(current.astype(float) - present_ref.astype(float))
-    similarity_to_present = 1 - np.mean(diff_present) / 255
-    
-    diff_absent = np.abs(current.astype(float) - absent_ref.astype(float))
-    similarity_to_absent = 1 - np.mean(diff_absent) / 255
-    
-    # Button is present if it's significantly different from the absent state
-    # This means similarity_to_absent should be low (< 0.85)
-    is_present = similarity_to_absent < 0.85
-    
-    # Debug output for similarity scores
-    print(f"\nSimilarity scores - Present: {similarity_to_present:.3f}, Absent: {similarity_to_absent:.3f}")
-    if is_present:
-        print("MATCH DETECTED!")
-    
-    return is_present, similarity_to_present
+    try:
+        present_ref = np.array(calibration_data['present_pixels'], dtype=np.float32)
+        absent_ref = np.array(calibration_data['absent_pixels'], dtype=np.float32)
+        current = current.astype(np.float32)
+        
+        # Calculate similarity with more weight on exact matches
+        diff_present = np.abs(current - present_ref)
+        similarity_to_present = 1 - np.mean(diff_present) / 255
+        
+        diff_absent = np.abs(current - absent_ref)
+        similarity_to_absent = 1 - np.mean(diff_absent) / 255
+        
+        # Button is present if it's significantly different from the absent state
+        # This means similarity_to_absent should be low (< 0.85)
+        is_present = similarity_to_absent < 0.85
+        
+        # Debug output for similarity scores
+        print(f"\nSimilarity scores - Present: {similarity_to_present:.3f}, Absent: {similarity_to_absent:.3f}")
+        if is_present:
+            print("MATCH DETECTED!")
+        
+        return is_present, similarity_to_present
+    except Exception as e:
+        print(f"Error checking button presence: {str(e)}")
+        return False, 0.0
 
 def run_clicker(dev_mode=False):
     """Main loop to check target areas and click when matched"""
