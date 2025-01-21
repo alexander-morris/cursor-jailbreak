@@ -1,12 +1,21 @@
-import numpy as np
-import pyautogui
+import os
+import sys
 import time
+import signal
+import argparse
+from datetime import datetime
+import pyautogui
+import numpy as np
+from PIL import Image
+
+# Update imports to use src directory
+from src.image_matcher import ImageMatcher
+from src.error_recovery import ErrorRecoveryHandler
+from src.logging_config import setup_logging, log_error_with_context, log_match_result, save_debug_image
 import mss
 import json
 from pathlib import Path
-import argparse
 import threading
-import sys
 
 def force_quit():
     print("\nTimeout reached (30 seconds). Forcing script termination...")

@@ -8,9 +8,9 @@ import pyautogui
 import numpy as np
 from PIL import Image
 
-from image_matcher import ImageMatcher
-from error_recovery import ErrorRecoveryHandler
-from logging_config import setup_logging, log_error_with_context, log_match_result, save_debug_image
+from src.image_matcher import ImageMatcher
+from src.error_recovery import ErrorRecoveryHandler
+from src.logging_config import setup_logging, log_error_with_context, log_match_result, save_debug_image
 
 class ClickBot:
     def __init__(self, debug=False, interval=3.0, confidence_threshold=0.8):

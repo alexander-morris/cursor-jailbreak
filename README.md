@@ -1,181 +1,164 @@
-# Cursor Auto-Continue Bot
+# HustleBot Clicker
 
-An automated tool for detecting and handling various Cursor AI interaction scenarios, including note detection and handling stuck conversations.
+An automated UI interaction tool with two implementations:
+1. `main.py` - Full-featured bot with multi-monitor support and advanced error recovery
+2. `basic_clicker.py` - Simplified single-monitor implementation with calibration
 
-## Features
-
-- Multi-monitor support with automatic window tracking
-- Automatic target detection and clicking across all monitors
-- Automatic note detection and response
-- Stuck conversation detection and recovery
-- Smart prompt interaction with visual verification
-- Development mode for testing
-- Robust error handling and detailed logging
-
-## Requirements
-
-- Python 3.x
-- OpenCV
-- numpy
-- pyautogui
-- mss (Multi-Screen Shot)
-- Pillow
+## Project Structure
+```
+.
+├── main.py              # Primary implementation
+├── basic_clicker.py     # Secondary implementation
+├── src/                 # Core dependencies
+│   ├── image_matcher.py     # OpenCV-based image matching
+│   ├── error_recovery.py    # Error handling and recovery
+│   └── logging_config.py    # Logging configuration
+├── requirements.txt     # Python dependencies
+└── README.md           # Documentation
+```
 
 ## Installation
 
-1. Clone the repository:
-```bash
-git clone [your-repo-url]
-cd cursor-auto-continue
-```
-
-2. Install dependencies:
+1. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Place required images in the `images` directory:
-- `note-with-icon.png` - Note icon image
-- `note-text.png` - Note text image
-- `composer-title.png` - Composer window title image
-- `target.png` - Target button image (created during calibration)
+## Basic Clicker (basic_clicker.py)
 
-## Usage
+A simplified implementation with built-in calibration.
 
-### Initial Setup
-First, calibrate the target button detection:
+### Features
+- Interactive calibration process
+- Multiple target support
+- Consecutive match verification
+- Returns cursor to original position after clicks
+- Development mode with timeout
+
+### Usage
+
+1. **Calibration Mode**:
 ```bash
-python cursor_auto_accept.py --calibrate
-```
-When prompted, move your cursor to the center of a target button and press Enter.
-
-### Production Mode
-Run the bot in normal mode with standard timeouts:
-```bash
-python cursor_auto_accept.py
+python basic_clicker.py --calibrate
 ```
 
-### Development Mode
-Run with shortened timeouts for testing:
+During calibration:
+1. For each target you want to click:
+   - When prompted, hover (don't click) over the button when it's visible
+   - Press Enter
+   - Wait for the button to disappear completely
+   - Press Enter again
+2. Repeat for additional targets
+3. Type 'y' when done adding targets
+
+2. **Normal Operation**:
 ```bash
-python cursor_auto_accept.py --dev
+python basic_clicker.py
 ```
 
-### Test Modes
-Test specific functionality:
+3. **Development Mode** (30-second timeout):
 ```bash
-python cursor_auto_accept.py --test-target  # Test target detection
-python cursor_auto_accept.py --test-note    # Test note detection
-python cursor_auto_accept.py --test-stuck   # Test stuck detection
+python basic_clicker.py --dev
 ```
 
-### Timeouts and Settings
+### Configuration
+- Minimum click interval: 5.0 seconds
+- Required consecutive matches: 2
+- Similarity threshold: 0.65
+- Match verification weight: 70% pixel difference, 30% exact matches
 
-Production Mode:
-- Stuck detection: 70 seconds
-- Stuck handler cooldown: 5 minutes
-- Action cooldown: 2 seconds
+## Main Bot (main.py)
 
-Development Mode:
-- Stuck detection: 10 seconds
-- No stuck handler cooldown
-- Action cooldown: 2 seconds
+The full-featured implementation with advanced capabilities.
 
-## Features in Detail
+### Features
+- Multi-monitor support
+- Automatic window detection
+- Advanced error recovery
+- Resource cleanup
+- Configurable cache clearing
 
-### Target Detection
-- Continuously scans all monitors for target buttons
-- Handles multiple targets across different monitors
-- Clicks targets in top-to-bottom order
-- Includes visual verification of successful clicks
-- Automatic retry on failed clicks
+### Usage
 
-### Note Detection
-- Continuously monitors all screens for note icons
-- Automatically types "continue" when a note is detected
-- Includes click verification and retry logic
-
-### Stuck Detection
-- Monitors the composer view for changes
-- Detects when conversation has been inactive
-- Sends reminder message with instructions
-- Tracks window movement to maintain accuracy
-
-### Window Tracking
-- Updates composer window position every second
-- Handles window movement across monitors
-- Logs significant position changes
-- Gracefully handles lost window scenarios
-
-## Logging
-
-The bot logs all activities to:
-- Console output (real-time)
-- `cursor_bot.log` file
-
-Log includes:
-- Monitor detection and configuration
-- Target detection and click attempts
-- Window position changes
-- Click attempts and verifications
-- Error conditions and recovery attempts
-- Stuck detection and handling
-
-## Error Handling
-
-- Visual verification of clicks
-- Automatic retry on failed clicks
-- Graceful handling of lost windows
-- Exception catching and logging
-- Monitor boundary checking
-
-## Development
-
-### Running Tests
-Use test modes for specific functionality:
+1. **Debug Mode** (recommended for first run):
 ```bash
-python cursor_auto_accept.py --test-target  # Test target detection
-python cursor_auto_accept.py --test-note    # Test note detection
-python cursor_auto_accept.py --test-stuck   # Test stuck detection
+python main.py --debug
 ```
 
-### Adding Features
-1. Create a new feature branch
-2. Implement changes
-3. Test in development mode
-4. Submit pull request
+2. **Custom Configuration**:
+```bash
+python main.py --interval 2.0 --confidence 0.8
+```
+
+### Command Line Options
+```bash
+python main.py [options]
+  --debug            Enable debug logging
+  --interval FLOAT   Scan interval in seconds (default: 3.0)
+  --confidence FLOAT Confidence threshold (default: 0.8)
+```
+
+## Configuration Tips
+
+### Confidence Threshold
+- Start with default (0.8)
+- Increase if getting false positives
+- Decrease if missing valid targets
+- Recommended ranges:
+  - High accuracy: 0.8-0.9
+  - Normal use: 0.7-0.8
+  - Lenient: 0.6-0.7
+
+### Scan Interval
+- Default: 3.0 seconds
+- Decrease for faster response
+- Increase to reduce CPU usage
+- Recommended ranges:
+  - Fast response: 1.0-2.0
+  - Normal use: 2.0-4.0
+  - Low CPU: 4.0+
 
 ## Troubleshooting
 
-1. If target detection isn't working:
-   - Run calibration again with `--calibrate`
-   - Ensure target button is clearly visible
+### Basic Clicker Issues
+1. **Calibration Problems**
+   - Ensure clear button visibility during "present" state
+   - Ensure complete button absence during "absent" state
+   - Check mean difference values (should be > 5)
+
+2. **False Positives/Negatives**
+   - Increase consecutive match requirement
+   - Adjust similarity threshold
+   - Recalibrate with more distinct states
+
+### Main Bot Issues
+1. **Window Detection**
+   - Run with --debug flag
    - Check monitor configuration
-   - Review logs for detection attempts
+   - Verify window visibility
 
-2. If clicks aren't registering:
-   - Check monitor configuration
-   - Verify prompt field position
-   - Adjust click verification threshold
+2. **Click Accuracy**
+   - Increase confidence threshold
+   - Check for window movement
+   - Verify target coordinates
 
-3. If stuck detection isn't working:
-   - Verify composer window is visible
-   - Check `composer-title.png` matches
-   - Review logs for position tracking
+## Best Practices
 
-4. If note detection fails:
-   - Verify note images are correct
-   - Check confidence threshold
-   - Ensure proper monitor coverage
+1. **Target Selection**
+   - Choose distinct, stable UI elements
+   - Avoid areas with dynamic content
+   - Calibrate during normal operation conditions
 
-## Contributing
+2. **Performance**
+   - Balance interval vs CPU usage
+   - Monitor memory usage
+   - Clean logs periodically
 
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+3. **Testing**
+   - Always test in safe environments
+   - Use development mode for initial setup
+   - Monitor logs during operation
 
 ## License
 
-MIT License - see LICENSE file for details 
+MIT License - Feel free to modify and distribute 
