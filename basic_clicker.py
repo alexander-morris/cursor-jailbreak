@@ -188,10 +188,60 @@ def check_button_present(current, calibration_data, similarity_threshold=0.65):
         print(f"Error checking button presence: {str(e)}")
         return False, 0.0
 
+class ClickStats:
+    def __init__(self):
+        self.total_clicks = 0
+        self.successful_clicks = 0
+        self.start_time = time.time()
+        self.last_click_time = None
+        
+    def record_click(self, success=True):
+        self.total_clicks += 1
+        if success:
+            self.successful_clicks += 1
+        self.last_click_time = time.time()
+    
+    def get_stats(self):
+        runtime = time.time() - self.start_time
+        hours = runtime / 3600
+        clicks_per_hour = self.total_clicks / hours if hours > 0 else 0
+        success_rate = (self.successful_clicks / self.total_clicks * 100) if self.total_clicks > 0 else 0
+        
+        return {
+            'runtime_hours': hours,
+            'total_clicks': self.total_clicks,
+            'successful_clicks': self.successful_clicks,
+            'clicks_per_hour': clicks_per_hour,
+            'success_rate': success_rate
+        }
+    
+    def print_stats(self):
+        stats = self.get_stats()
+        print("\nSession Statistics:")
+        print(f"Runtime: {stats['runtime_hours']:.2f} hours")
+        print(f"Total Clicks: {stats['total_clicks']}")
+        print(f"Successful Clicks: {stats['successful_clicks']}")
+        print(f"Clicks/Hour: {stats['clicks_per_hour']:.1f}")
+        print(f"Success Rate: {stats['success_rate']:.1f}%")
+
+def verify_click(sct, target, pre_click_state):
+    """Verify click was successful by comparing screen state before and after"""
+    time.sleep(0.2)  # Wait for UI to update
+    post_click_state = np.array(sct.grab(target['region']))
+    
+    # Calculate difference between states
+    diff = np.abs(post_click_state.astype(float) - pre_click_state.astype(float))
+    mean_diff = np.mean(diff)
+    
+    # If states are very similar, click probably didn't work
+    return mean_diff > 10  # Threshold for significant change
+
 def run_clicker(dev_mode=False):
     """Main loop to check target areas and click when matched"""
     sct = None
     timeout_timer = None
+    stats = ClickStats()
+    
     try:
         # Set up 30-second timeout only in dev mode
         if dev_mode:
@@ -237,13 +287,23 @@ def run_clicker(dev_mode=False):
                                 print(f"\nTarget {i+1} matched (similarity: {similarity:.3f})!")
                                 print(f"Clicking at ({target['x']}, {target['y']})")
                                 
-                                # Store original position
+                                # Store original position and screen state
                                 original_x, original_y = pyautogui.position()
+                                pre_click_state = current.copy()
                                 
                                 try:
                                     # Move and click
                                     pyautogui.moveTo(target['x'], target['y'], duration=0.1)
                                     pyautogui.click()
+                                    
+                                    # Verify click
+                                    click_success = verify_click(sct, target, pre_click_state)
+                                    stats.record_click(click_success)
+                                    
+                                    if click_success:
+                                        print("Click verified successful!")
+                                    else:
+                                        print("Click verification failed - no UI change detected")
                                     
                                     # Return to original position
                                     pyautogui.moveTo(original_x, original_y, duration=0.1)
@@ -253,6 +313,10 @@ def run_clicker(dev_mode=False):
                                     # Reset consecutive matches for all targets
                                     consecutive_matches = {i: 0 for i in range(len(targets))}
                                     
+                                    # Print current stats every 10 clicks
+                                    if stats.total_clicks % 10 == 0:
+                                        stats.print_stats()
+                                    
                                     # Small delay after click
                                     time.sleep(0.1)
                                     
@@ -261,6 +325,7 @@ def run_clicker(dev_mode=False):
                                     
                                 except Exception as e:
                                     print(f"Click failed: {str(e)}")
+                                    stats.record_click(False)
                         else:
                             consecutive_matches[i] = 0  # Reset if no match
                 
@@ -279,6 +344,9 @@ def run_clicker(dev_mode=False):
                 print(f"\nError: {str(e)}")
                 break
     finally:
+        # Print final stats
+        print("\nFinal Statistics:")
+        stats.print_stats()
         cleanup(sct, timeout_timer)
 
 if __name__ == "__main__":
