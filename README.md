@@ -40,6 +40,10 @@ A simplified implementation with built-in calibration.
 - Consecutive match verification
 - Returns cursor to original position after clicks
 - Development mode with timeout
+- Click verification with screenshots
+- Session statistics (clicks/hour, success rate)
+- Improved error handling
+- Reduced debug output verbosity
 
 ### Usage
 
@@ -72,6 +76,18 @@ python basic_clicker.py --dev
 - Required consecutive matches: 2
 - Similarity threshold: 0.65
 - Match verification weight: 70% pixel difference, 30% exact matches
+- Click verification threshold: 10 (mean pixel difference)
+- Debug output threshold: 0.8 (similarity score)
+
+### Session Statistics
+The bot tracks and displays:
+- Total runtime in hours
+- Total clicks attempted
+- Successful clicks (verified)
+- Clicks per hour
+- Success rate percentage
+
+Statistics are displayed every 10 clicks and at shutdown.
 
 ## Main Bot (main.py)
 
@@ -131,11 +147,13 @@ python main.py [options]
    - Ensure clear button visibility during "present" state
    - Ensure complete button absence during "absent" state
    - Check mean difference values (should be > 5)
+   - Verify click success with UI state changes
 
 2. **False Positives/Negatives**
    - Increase consecutive match requirement
    - Adjust similarity threshold
    - Recalibrate with more distinct states
+   - Monitor click verification results
 
 ### Main Bot Issues
 1. **Window Detection**
