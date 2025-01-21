@@ -30,10 +30,16 @@ def capture_state(sct, x, y):
     return np.array(sct.grab(region)), region
 
 def calibrate():
-    """Capture both present and absent states of the target"""
+    """Capture both present and absent states for multiple targets"""
+    targets = []
     with mss.mss() as sct:
-        while True:  # Loop until we get good calibration
+        while True:  # Loop until user is done adding targets
+            print(f"\nCurrently have {len(targets)} targets.")
+            if len(targets) > 0 and input("Done adding targets? (y/n): ").lower() == 'y':
+                break
+                
             print("\n=== Button Present Calibration ===")
+            print(f"Target #{len(targets) + 1}")
             print("1. Hover over the target button when it IS present (DO NOT CLICK)...")
             print("Make sure the button is fully visible!")
             input("Press Enter when ready...")
@@ -62,12 +68,12 @@ def calibrate():
             if mean_diff < 5:
                 print("\nWarning: The difference between present and absent states is very small.")
                 print("This might indicate that the calibration didn't capture distinct states.")
-                retry = input("Would you like to try calibration again? (y/n): ")
+                retry = input("Would you like to try calibrating this target again? (y/n): ")
                 if retry.lower() == 'y':
                     continue
             
-            # Save calibration data
-            data = {
+            # Save target data
+            target = {
                 'x': x,
                 'y': y,
                 'region': region,
@@ -77,27 +83,31 @@ def calibrate():
                 'std_diff': float(std_diff)
             }
             
-            with open('basic_target.json', 'w') as f:
-                json.dump(data, f)
-            
-            print("\nCalibration complete!")
-            print(f"Position: ({x}, {y})")
+            targets.append(target)
+            print(f"\nTarget #{len(targets)} saved at ({x}, {y})")
             print(f"Mean difference between states: {mean_diff:.2f}")
             print(f"Standard deviation of difference: {std_diff:.2f}")
-            print("\nNote: The script will scan:")
-            print(f"- Up to 100 pixels ABOVE {y}")
-            print(f"- Up to 150 pixels BELOW {y}")
-            print("for the target button")
-            return data
+        
+        # Save all targets
+        with open('basic_targets.json', 'w') as f:
+            json.dump(targets, f)
+        
+        print(f"\nCalibration complete! Saved {len(targets)} targets.")
+        for i, target in enumerate(targets, 1):
+            print(f"Target {i} at ({target['x']}, {target['y']})")
+        
+        return targets
 
 def load_calibration():
     """Load the saved calibration data"""
     try:
-        with open('basic_target.json', 'r') as f:
-            data = json.load(f)
-            data['present_pixels'] = np.array(data['present_pixels'])
-            data['absent_pixels'] = np.array(data['absent_pixels'])
-            return data
+        with open('basic_targets.json', 'r') as f:
+            targets = json.load(f)
+            # Convert lists back to numpy arrays
+            for target in targets:
+                target['present_pixels'] = np.array(target['present_pixels'])
+                target['absent_pixels'] = np.array(target['absent_pixels'])
+            return targets
     except FileNotFoundError:
         return None
 
@@ -158,7 +168,7 @@ def check_button_present(current, calibration_data, similarity_threshold=0.65):
     return is_present, similarity_to_present
 
 def run_clicker(dev_mode=False):
-    """Main loop to check target area and click when matched"""
+    """Main loop to check target areas and click when matched"""
     sct = None
     timeout_timer = None
     try:
@@ -169,61 +179,69 @@ def run_clicker(dev_mode=False):
             print("Development mode: Script will terminate after 30 seconds")
         
         # Load or create calibration
-        data = load_calibration()
-        if not data:
+        targets = load_calibration()
+        if not targets:
             print("No calibration found.")
-            data = calibrate()
+            targets = calibrate()
         
-        print(f"\nMonitoring target at ({data['x']}, {data['y']})...")
+        print("\nMonitoring targets:")
+        for i, target in enumerate(targets, 1):
+            print(f"Target {i} at ({target['x']}, {target['y']})")
         print("Press Ctrl+C to stop")
         
         sct = mss.mss()
         last_feedback_time = time.time()
         last_click_time = 0
-        min_click_interval = 0.5  # Reduced to 0.5 seconds between clicks
-        consecutive_matches = 0  # Track consecutive matches
+        min_click_interval = 5.0  # Minimum seconds between clicks
+        consecutive_matches = {i: 0 for i in range(len(targets))}  # Track consecutive matches per target
         
         while True:
             try:
                 current_time = time.time()
                 
-                # Only check for button if enough time has passed since last click
+                # Only check for buttons if enough time has passed since last click
                 if current_time - last_click_time >= min_click_interval:
-                    # Capture current state
-                    current = np.array(sct.grab(data['region']))
-                    
-                    # Check if button is present
-                    is_present, similarity = check_button_present(current, data)
-                    
-                    if is_present:
-                        consecutive_matches += 1
-                        # Only click if we've seen the button for a few frames
-                        if consecutive_matches >= 2:
-                            print(f"\nTarget matched (similarity: {similarity:.3f})!")
-                            print(f"Clicking at ({data['x']}, {data['y']})")
-                            
-                            # Store original position
-                            original_x, original_y = pyautogui.position()
-                            
-                            try:
-                                # Move and click
-                                pyautogui.moveTo(data['x'], data['y'], duration=0.1)
-                                pyautogui.click()
+                    # Check each target
+                    for i, target in enumerate(targets):
+                        # Capture current state for this target
+                        current = np.array(sct.grab(target['region']))
+                        
+                        # Check if button is present
+                        is_present, similarity = check_button_present(current, target)
+                        
+                        if is_present:
+                            consecutive_matches[i] += 1
+                            # Only click if we've seen the button for a few frames
+                            if consecutive_matches[i] >= 2:
+                                print(f"\nTarget {i+1} matched (similarity: {similarity:.3f})!")
+                                print(f"Clicking at ({target['x']}, {target['y']})")
                                 
-                                # Return to original position
-                                pyautogui.moveTo(original_x, original_y, duration=0.1)
+                                # Store original position
+                                original_x, original_y = pyautogui.position()
                                 
-                                # Update last click time
-                                last_click_time = current_time
-                                consecutive_matches = 0  # Reset after click
-                                
-                                # Small delay after click
-                                time.sleep(0.1)
-                                
-                            except Exception as e:
-                                print(f"Click failed: {str(e)}")
-                    else:
-                        consecutive_matches = 0  # Reset if no match
+                                try:
+                                    # Move and click
+                                    pyautogui.moveTo(target['x'], target['y'], duration=0.1)
+                                    pyautogui.click()
+                                    
+                                    # Return to original position
+                                    pyautogui.moveTo(original_x, original_y, duration=0.1)
+                                    
+                                    # Update last click time
+                                    last_click_time = current_time
+                                    # Reset consecutive matches for all targets
+                                    consecutive_matches = {i: 0 for i in range(len(targets))}
+                                    
+                                    # Small delay after click
+                                    time.sleep(0.1)
+                                    
+                                    # Break after clicking one target
+                                    break
+                                    
+                                except Exception as e:
+                                    print(f"Click failed: {str(e)}")
+                        else:
+                            consecutive_matches[i] = 0  # Reset if no match
                 
                 # Visual feedback every second
                 if current_time - last_feedback_time >= 1.0:
@@ -243,7 +261,7 @@ def run_clicker(dev_mode=False):
         cleanup(sct, timeout_timer)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Basic target clicker with calibration')
+    parser = argparse.ArgumentParser(description='Multi-target clicker with calibration')
     parser.add_argument('--calibrate', action='store_true', help='Run in calibration mode')
     parser.add_argument('--dev', action='store_true', help='Development mode: Enable 30-second timeout')
     args = parser.parse_args()

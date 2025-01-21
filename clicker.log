@@ -1,0 +1,92 @@
+2025-01-17 06:44:34,132 - INFO - Loaded 2 targets from calibration
+2025-01-17 06:44:34,132 - INFO - 
+Monitoring targets:
+2025-01-17 06:44:34,132 - INFO - Target 1 at (773, -137)
+2025-01-17 06:44:34,132 - INFO - Target 2 at (472, -221)
+2025-01-17 06:44:34,132 - INFO - Press Ctrl+C to stop
+2025-01-17 06:44:34,132 - INFO - Clearing Chrome cache...
+2025-01-17 06:44:34,308 - INFO - Cache cleared successfully
+2025-01-17 06:44:34,322 - INFO - Moving to (773, -137)
+2025-01-17 06:44:35,027 - INFO - Click completed
+2025-01-17 06:44:35,028 - INFO - Total clicks: 1
+2025-01-17 06:44:39,533 - INFO - Clearing Chrome cache...
+2025-01-17 06:44:39,534 - INFO - Cache cleared successfully
+2025-01-17 06:44:39,535 - INFO - Moving to (773, -137)
+2025-01-17 06:44:40,224 - INFO - Click completed
+2025-01-17 06:44:40,225 - INFO - Total clicks: 2
+2025-01-17 06:44:44,731 - INFO - Clearing Chrome cache...
+2025-01-17 06:44:44,732 - INFO - Cache cleared successfully
+2025-01-17 06:44:44,732 - INFO - Moving to (773, -137)
+2025-01-17 06:44:45,419 - INFO - Click completed
+2025-01-17 06:44:45,419 - INFO - Total clicks: 3
+2025-01-17 06:44:49,925 - INFO - Clearing Chrome cache...
+2025-01-17 06:44:49,927 - INFO - Cache cleared successfully
+2025-01-17 06:44:49,928 - INFO - Moving to (773, -137)
+2025-01-17 06:44:50,618 - INFO - Click completed
+2025-01-17 06:44:50,618 - INFO - Total clicks: 4
+2025-01-17 06:44:55,126 - INFO - Clearing Chrome cache...
+2025-01-17 06:44:55,126 - INFO - Cache cleared successfully
+2025-01-17 06:44:55,126 - INFO - Moving to (773, -137)
+2025-01-17 06:44:55,817 - INFO - Click completed
+2025-01-17 06:44:55,817 - INFO - Total clicks: 5
+2025-01-17 06:45:00,323 - INFO - Clearing Chrome cache...
+2025-01-17 06:45:00,325 - INFO - Cache cleared successfully
+2025-01-17 06:45:00,326 - INFO - Moving to (773, -137)
+2025-01-17 06:45:01,021 - INFO - Click completed
+2025-01-17 06:45:01,022 - INFO - Total clicks: 6
+2025-01-17 06:45:05,528 - INFO - Clearing Chrome cache...
+2025-01-17 06:45:05,529 - INFO - Cache cleared successfully
+2025-01-17 06:45:05,529 - INFO - Moving to (773, -137)
+2025-01-17 06:45:06,215 - INFO - Click completed
+2025-01-17 06:45:06,215 - INFO - Total clicks: 7
+2025-01-17 06:45:10,723 - INFO - Clearing Chrome cache...
+2025-01-17 06:45:10,724 - INFO - Cache cleared successfully
+2025-01-17 06:45:10,725 - INFO - Moving to (773, -137)
+2025-01-17 06:45:11,417 - INFO - Click completed
+2025-01-17 06:45:11,417 - INFO - Total clicks: 8
+2025-01-17 06:45:15,925 - INFO - Clearing Chrome cache...
+2025-01-17 06:45:15,926 - INFO - Cache cleared successfully
+2025-01-17 06:45:15,927 - INFO - Moving to (773, -137)
+2025-01-17 06:45:16,616 - INFO - Click completed
+2025-01-17 06:45:16,616 - INFO - Total clicks: 9
+2025-01-17 06:45:21,126 - INFO - Clearing Chrome cache...
+2025-01-17 06:45:21,128 - INFO - Cache cleared successfully
+2025-01-17 06:45:21,129 - INFO - Moving to (773, -137)
+2025-01-17 06:45:21,820 - INFO - Click completed
+2025-01-17 06:45:21,821 - INFO - Total clicks: 10
+2025-01-17 06:45:23,042 - INFO - 
+Stopped by user
+2025-01-17 06:45:23,042 - INFO - Clicker stopped gracefully
+2025-01-17 06:45:23,043 - INFO - Clicker shutting down. Total clicks: 10
+2025-01-17 06:47:46,059 - INFO - Loaded 2 targets from calibration
+2025-01-17 06:47:46,060 - INFO - 
+Monitoring targets:
+2025-01-17 06:47:46,060 - INFO - Target 1 at (773, -137)
+2025-01-17 06:47:46,060 - INFO - Target 2 at (472, -221)
+2025-01-17 06:47:46,060 - INFO - Press Ctrl+C to stop
+2025-01-17 06:47:46,060 - INFO - Clicking at (773, -137)
+2025-01-17 06:47:46,248 - INFO - Total clicks: 1
+2025-01-17 06:47:51,254 - INFO - Clicking at (773, -137)
+2025-01-17 06:47:51,420 - INFO - Total clicks: 2
+2025-01-17 06:47:56,429 - INFO - Clicking at (773, -137)
+2025-01-17 06:47:56,596 - INFO - Total clicks: 3
+2025-01-17 06:48:00,865 - INFO - 
+Stopped by user
+2025-01-17 06:48:00,865 - INFO - Clicker stopped gracefully
+2025-01-17 06:48:00,865 - INFO - Clicker shutting down. Total clicks: 3
+2025-01-17 06:48:04,961 - INFO - Loaded 2 targets from calibration
+2025-01-17 06:48:04,961 - INFO - 
+Monitoring targets:
+2025-01-17 06:48:04,961 - INFO - Target 1 at (773, -137)
+2025-01-17 06:48:04,961 - INFO - Target 2 at (472, -221)
+2025-01-17 06:48:04,961 - INFO - Press Ctrl+C to stop
+2025-01-17 06:48:04,961 - INFO - Clicking at (773, -137)
+2025-01-17 06:48:05,152 - INFO - Total clicks: 1
+2025-01-17 06:48:10,162 - INFO - Clicking at (773, -137)
+2025-01-17 06:48:10,327 - INFO - Total clicks: 2
+2025-01-17 06:48:15,338 - INFO - Clicking at (773, -137)
+2025-01-17 06:48:15,503 - INFO - Total clicks: 3
+2025-01-17 06:48:17,126 - INFO - 
+Stopped by user
+2025-01-17 06:48:17,127 - INFO - Clicker stopped gracefully
+2025-01-17 06:48:17,127 - INFO - Clicker shutting down. Total clicks: 3
