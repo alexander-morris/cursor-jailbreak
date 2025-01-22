@@ -6,6 +6,7 @@
 3. [x] main.py: Improve error handling for missing images
 4. [x] basic_clicker.py: Reduce debug output verbosity
 5. [ ] Add error handling for click verification failures
+6. [x] Add stuck detection and recovery with configurable actions
 
 ## Testing Needed
 1. [x] Test basic_clicker.py calibration after type conversion fix
@@ -13,6 +14,7 @@
 3. [ ] Test both implementations with real targets
 4. [ ] Test error recovery scenarios
 5. [ ] Test click verification with different UI states
+6. [x] Test stuck monitor with different thresholds and commands
 
 ## Future Improvements
 1. [ ] Add automated tests

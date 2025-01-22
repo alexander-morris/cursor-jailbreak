@@ -1,14 +1,16 @@
 # HustleBot Clicker
 
-An automated UI interaction tool with two implementations:
+An automated UI interaction tool with three implementations:
 1. `main.py` - Full-featured bot with multi-monitor support and advanced error recovery
 2. `basic_clicker.py` - Simplified single-monitor implementation with calibration
+3. `stuck_monitor.py` - Dedicated monitor for detecting and recovering from stuck states
 
 ## Project Structure
 ```
 .
 ├── main.py              # Primary implementation
 ├── basic_clicker.py     # Secondary implementation
+├── stuck_monitor.py     # Third implementation
 ├── src/                 # Core dependencies
 │   ├── image_matcher.py     # OpenCV-based image matching
 │   ├── error_recovery.py    # Error handling and recovery
@@ -139,6 +141,42 @@ python main.py [options]
   - Fast response: 1.0-2.0
   - Normal use: 2.0-4.0
   - Low CPU: 4.0+
+
+## Stuck Monitor (stuck_monitor.py)
+
+A dedicated tool for monitoring screen regions and performing recovery actions when stuck.
+
+### Features
+- Interactive region selection
+- Configurable action click position
+- Configurable recovery command
+- Incremental change detection
+- Automatic stuck detection (30s timeout)
+- Action cooldown protection
+- Cursor position restoration
+
+### Usage
+
+```bash
+python stuck_monitor.py [--debug] [--interval SECONDS]
+```
+
+During setup:
+1. Select region to monitor (top-left and bottom-right corners)
+2. Select where to click when stuck
+3. Enter the command to type after clicking
+
+### Configuration
+- Change detection threshold: 5 (mean pixel difference)
+- Stuck timeout: 30 seconds
+- Action cooldown: 5 seconds
+- Required consecutive changes: 2
+
+### Recovery Action Sequence
+1. Click at specified position
+2. Type configured command
+3. Press Command+Enter
+4. Return cursor to original position
 
 ## Troubleshooting
 
