@@ -3,6 +3,8 @@ import numpy as np
 from dataclasses import dataclass
 import logging
 from pathlib import Path
+from datetime import datetime
+import mss
 
 @dataclass
 class MatchQuality:
@@ -21,6 +23,7 @@ class ImageMatcher:
     def __init__(self, threshold=0.8, debug=False):
         self.threshold = threshold
         self.debug = debug
+        self.sct = mss.mss()  # Initialize mss for screen capture
         
         # Set up logging
         self.logger = logging.getLogger('image_matcher')
@@ -30,6 +33,26 @@ class ImageMatcher:
             # Create debug directory
             self.debug_dir = Path('temp/debug')
             self.debug_dir.mkdir(parents=True, exist_ok=True)
+
+    def get_monitors(self):
+        """Get a list of all monitors."""
+        try:
+            return [dict(monitor) for monitor in self.sct.monitors[1:]]  # Skip the "all-in-one" monitor
+        except Exception as e:
+            self.logger.error(f"Error getting monitors: {str(e)}")
+            return []
+
+    def capture_screen(self, region=None):
+        """Capture the screen or a region of it."""
+        try:
+            if region:
+                screenshot = np.array(self.sct.grab(region))
+            else:
+                screenshot = np.array(self.sct.grab(self.sct.monitors[1]))  # Primary monitor
+            return screenshot
+        except Exception as e:
+            self.logger.error(f"Error capturing screen: {str(e)}")
+            return None
 
     def find_template(self, image, template, threshold=None):
         """Find a template in an image using template matching."""

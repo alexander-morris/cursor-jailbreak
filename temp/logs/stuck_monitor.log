@@ -1,0 +1,215 @@
+2025-01-21 20:38:10,265 - INFO - StuckMonitor initialized - Debug: True, Interval: 1.0s
+2025-01-21 20:48:39,344 - INFO - Starting StuckMonitor
+2025-01-21 20:49:00,129 - INFO - Monitor running - watching for changes
+2025-01-21 20:49:09,491 - WARNING - No changes detected for 30 seconds!
+2025-01-21 20:49:10,529 - WARNING - No changes detected for 30 seconds!
+2025-01-21 20:49:11,569 - WARNING - No changes detected for 30 seconds!
+2025-01-21 20:49:12,612 - WARNING - No changes detected for 30 seconds!
+2025-01-21 20:49:13,651 - WARNING - No changes detected for 30 seconds!
+2025-01-21 20:49:14,683 - DEBUG - Change detected! Mean difference: 10.93
+2025-01-21 20:57:50,309 - INFO - StuckMonitor initialized - Debug: True, Interval: 1.0s
+2025-01-21 20:58:04,727 - INFO - Starting StuckMonitor
+2025-01-21 20:58:04,789 - DEBUG - Change detected! Mean difference: 10.90
+2025-01-21 20:58:05,846 - DEBUG - Change detected! Mean difference: 11.07
+2025-01-21 20:58:05,847 - INFO - Change detected (difference: 11.068)
+2025-01-21 20:58:36,333 - WARNING - No changes detected for 30 seconds - performing action!
+2025-01-21 20:58:36,696 - INFO - Performed action click at (1231, 1037)
+2025-01-21 20:58:37,734 - DEBUG - Change detected! Mean difference: 10.09
+2025-01-21 20:58:38,788 - DEBUG - Change detected! Mean difference: 10.09
+2025-01-21 20:58:38,789 - INFO - Change detected (difference: 10.089)
+2025-01-21 20:58:39,840 - DEBUG - Change detected! Mean difference: 10.27
+2025-01-21 20:58:40,894 - DEBUG - Change detected! Mean difference: 10.27
+2025-01-21 20:58:40,895 - INFO - Change detected (difference: 10.272)
+2025-01-21 20:58:41,949 - DEBUG - Change detected! Mean difference: 10.38
+2025-01-21 20:58:42,990 - DEBUG - Change detected! Mean difference: 10.38
+2025-01-21 20:58:42,992 - INFO - Change detected (difference: 10.376)
+2025-01-21 20:58:44,022 - DEBUG - Change detected! Mean difference: 10.47
+2025-01-21 20:58:45,073 - DEBUG - Change detected! Mean difference: 10.47
+2025-01-21 20:58:45,075 - INFO - Change detected (difference: 10.472)
+2025-01-21 20:58:46,122 - DEBUG - Change detected! Mean difference: 10.48
+2025-01-21 20:58:47,176 - DEBUG - Change detected! Mean difference: 10.48
+2025-01-21 20:58:47,178 - INFO - Change detected (difference: 10.478)
+2025-01-21 20:58:48,229 - DEBUG - Change detected! Mean difference: 10.82
+2025-01-21 20:58:49,274 - DEBUG - Change detected! Mean difference: 10.82
+2025-01-21 20:58:49,275 - INFO - Change detected (difference: 10.821)
+2025-01-21 20:58:50,330 - DEBUG - Change detected! Mean difference: 10.72
+2025-01-21 20:58:51,380 - DEBUG - Change detected! Mean difference: 10.72
+2025-01-21 20:58:51,382 - INFO - Change detected (difference: 10.724)
+2025-01-21 20:58:52,480 - DEBUG - Change detected! Mean difference: 10.84
+2025-01-21 20:58:53,540 - DEBUG - Change detected! Mean difference: 10.83
+2025-01-21 20:58:53,542 - INFO - Change detected (difference: 10.835)
+2025-01-21 20:58:54,592 - DEBUG - Change detected! Mean difference: 11.19
+2025-01-21 20:58:55,650 - DEBUG - Change detected! Mean difference: 11.19
+2025-01-21 20:58:55,652 - INFO - Change detected (difference: 11.193)
+2025-01-21 20:58:56,704 - DEBUG - Change detected! Mean difference: 11.15
+2025-01-21 20:58:57,742 - DEBUG - Change detected! Mean difference: 11.15
+2025-01-21 20:58:57,744 - INFO - Change detected (difference: 11.146)
+2025-01-21 20:58:58,796 - DEBUG - Change detected! Mean difference: 11.43
+2025-01-21 20:58:59,851 - DEBUG - Change detected! Mean difference: 11.43
+2025-01-21 20:58:59,854 - INFO - Change detected (difference: 11.428)
+2025-01-21 20:59:00,906 - DEBUG - Change detected! Mean difference: 11.37
+2025-01-21 20:59:00,908 - INFO - Monitor running - watching for changes
+2025-01-21 20:59:01,960 - DEBUG - Change detected! Mean difference: 11.42
+2025-01-21 20:59:01,962 - INFO - Change detected (difference: 11.421)
+2025-01-21 20:59:03,008 - DEBUG - Change detected! Mean difference: 11.68
+2025-01-21 20:59:04,062 - DEBUG - Change detected! Mean difference: 11.68
+2025-01-21 20:59:04,064 - INFO - Change detected (difference: 11.684)
+2025-01-21 20:59:05,115 - DEBUG - Change detected! Mean difference: 11.65
+2025-01-21 20:59:06,164 - DEBUG - Change detected! Mean difference: 11.65
+2025-01-21 20:59:06,166 - INFO - Change detected (difference: 11.653)
+2025-01-21 20:59:07,220 - DEBUG - Change detected! Mean difference: 11.68
+2025-01-21 20:59:08,277 - DEBUG - Change detected! Mean difference: 11.68
+2025-01-21 20:59:08,279 - INFO - Change detected (difference: 11.680)
+2025-01-21 20:59:09,317 - DEBUG - Change detected! Mean difference: 11.79
+2025-01-21 20:59:10,365 - DEBUG - Change detected! Mean difference: 11.79
+2025-01-21 20:59:10,367 - INFO - Change detected (difference: 11.788)
+2025-01-21 20:59:11,415 - DEBUG - Change detected! Mean difference: 11.79
+2025-01-21 20:59:12,445 - DEBUG - Change detected! Mean difference: 11.79
+2025-01-21 20:59:12,446 - INFO - Change detected (difference: 11.791)
+2025-01-21 20:59:13,499 - DEBUG - Change detected! Mean difference: 11.66
+2025-01-21 20:59:14,530 - DEBUG - Change detected! Mean difference: 13.07
+2025-01-21 20:59:14,531 - INFO - Change detected (difference: 13.069)
+2025-01-21 20:59:15,576 - DEBUG - Change detected! Mean difference: 11.67
+2025-01-21 20:59:16,615 - DEBUG - Change detected! Mean difference: 11.67
+2025-01-21 20:59:16,616 - INFO - Change detected (difference: 11.667)
+2025-01-21 20:59:17,648 - DEBUG - Change detected! Mean difference: 11.65
+2025-01-21 20:59:18,675 - DEBUG - Change detected! Mean difference: 11.65
+2025-01-21 20:59:18,676 - INFO - Change detected (difference: 11.653)
+2025-01-21 20:59:19,719 - DEBUG - Change detected! Mean difference: 11.65
+2025-01-21 20:59:20,747 - DEBUG - Change detected! Mean difference: 11.65
+2025-01-21 20:59:20,748 - INFO - Change detected (difference: 11.654)
+2025-01-21 21:04:15,144 - INFO - StuckMonitor initialized - Debug: True, Interval: 1.0s
+2025-01-21 21:04:45,526 - INFO - Starting StuckMonitor
+2025-01-21 21:04:45,580 - DEBUG - Change detected! Mean difference: 14.79
+2025-01-21 21:04:46,617 - DEBUG - Change detected! Mean difference: 13.40
+2025-01-21 21:04:46,619 - INFO - Change detected (difference: 13.396)
+2025-01-21 21:04:47,674 - DEBUG - Change detected! Mean difference: 13.45
+2025-01-21 21:04:48,735 - DEBUG - Change detected! Mean difference: 13.45
+2025-01-21 21:04:48,736 - INFO - Change detected (difference: 13.450)
+2025-01-21 21:04:49,792 - DEBUG - Change detected! Mean difference: 13.53
+2025-01-21 21:04:50,853 - DEBUG - Change detected! Mean difference: 13.53
+2025-01-21 21:04:50,855 - INFO - Change detected (difference: 13.527)
+2025-01-21 21:04:51,913 - DEBUG - Change detected! Mean difference: 13.41
+2025-01-21 21:04:52,948 - DEBUG - Change detected! Mean difference: 13.41
+2025-01-21 21:04:52,949 - INFO - Change detected (difference: 13.405)
+2025-01-21 21:04:54,007 - DEBUG - Change detected! Mean difference: 13.66
+2025-01-21 21:04:55,052 - DEBUG - Change detected! Mean difference: 13.66
+2025-01-21 21:04:55,054 - INFO - Change detected (difference: 13.657)
+2025-01-21 21:04:56,089 - DEBUG - Change detected! Mean difference: 19.08
+2025-01-21 21:04:57,143 - DEBUG - Change detected! Mean difference: 19.08
+2025-01-21 21:04:57,144 - INFO - Change detected (difference: 19.080)
+2025-01-21 21:04:58,189 - DEBUG - Change detected! Mean difference: 19.08
+2025-01-21 21:04:59,244 - DEBUG - Change detected! Mean difference: 19.08
+2025-01-21 21:04:59,246 - INFO - Change detected (difference: 19.080)
+2025-01-21 21:05:00,297 - DEBUG - Change detected! Mean difference: 19.08
+2025-01-21 21:05:00,299 - INFO - Monitor running - watching for changes
+2025-01-21 21:05:01,332 - DEBUG - Change detected! Mean difference: 19.08
+2025-01-21 21:05:01,333 - INFO - Change detected (difference: 19.080)
+2025-01-21 21:05:02,389 - DEBUG - Change detected! Mean difference: 19.08
+2025-01-21 21:05:03,446 - DEBUG - Change detected! Mean difference: 19.08
+2025-01-21 21:05:03,447 - INFO - Change detected (difference: 19.080)
+2025-01-21 21:05:04,489 - DEBUG - Change detected! Mean difference: 17.83
+2025-01-21 21:05:05,546 - DEBUG - Change detected! Mean difference: 14.42
+2025-01-21 21:05:05,548 - INFO - Change detected (difference: 14.417)
+2025-01-21 21:05:06,590 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:07,660 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:07,662 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:08,714 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:09,762 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:09,763 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:10,824 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:11,886 - DEBUG - Change detected! Mean difference: 14.26
+2025-01-21 21:05:11,888 - INFO - Change detected (difference: 14.256)
+2025-01-21 21:05:12,944 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:14,005 - DEBUG - Change detected! Mean difference: 14.26
+2025-01-21 21:05:14,007 - INFO - Change detected (difference: 14.256)
+2025-01-21 21:05:15,061 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:16,115 - DEBUG - Change detected! Mean difference: 14.26
+2025-01-21 21:05:16,117 - INFO - Change detected (difference: 14.256)
+2025-01-21 21:05:17,177 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:18,237 - DEBUG - Change detected! Mean difference: 14.26
+2025-01-21 21:05:18,239 - INFO - Change detected (difference: 14.256)
+2025-01-21 21:05:19,296 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:20,359 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:20,360 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:21,398 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:22,441 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:22,443 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:23,477 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:24,527 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:24,529 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:25,579 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:26,639 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:26,641 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:27,686 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:28,741 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:28,744 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:29,796 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:30,852 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:30,854 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:30,854 - INFO - Monitor running - watching for changes
+2025-01-21 21:05:31,901 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:32,956 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:32,958 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:33,997 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:35,048 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:35,049 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:36,096 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:37,154 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:37,155 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:38,198 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:39,261 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:39,263 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:40,307 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:41,344 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:41,346 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:42,382 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:43,442 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:43,444 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:44,496 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:45,556 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:45,558 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:46,602 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:47,657 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:47,659 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:48,710 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:49,769 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:49,771 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:50,815 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:51,872 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:51,875 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:52,903 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:53,959 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:53,961 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:55,016 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:56,075 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:56,077 - INFO - Change detected (difference: 14.250)
+2025-01-21 21:05:57,109 - DEBUG - Change detected! Mean difference: 14.25
+2025-01-21 21:05:58,155 - DEBUG - Change detected! Mean difference: 15.72
+2025-01-21 21:05:58,156 - INFO - Change detected (difference: 15.722)
+2025-01-21 21:05:59,192 - DEBUG - Change detected! Mean difference: 15.72
+2025-01-21 21:05:59,434 - INFO - Received signal 2
+2025-01-21 21:05:59,434 - INFO - Stopping StuckMonitor
+2025-01-21 21:06:00,195 - INFO - Stopping StuckMonitor
+2025-01-21 21:48:15,140 - INFO - StuckMonitor initialized - Debug: True, Interval: 1.0s
+2025-01-21 21:48:42,093 - INFO - Starting StuckMonitor
+2025-01-21 21:48:43,163 - INFO - Change detected (difference: 11.836)
+2025-01-21 21:48:52,541 - INFO - Change detected (difference: 11.316)
+2025-01-21 21:48:58,776 - INFO - Change detected (difference: 12.227)
+2025-01-21 21:49:00,854 - INFO - Monitor running - watching for changes
+2025-01-21 21:49:15,440 - INFO - Change detected (difference: 10.752)
+2025-01-21 21:49:17,540 - INFO - Received signal 2
+2025-01-21 21:49:17,540 - INFO - Stopping StuckMonitor
+2025-01-21 21:49:18,540 - INFO - Stopping StuckMonitor
+2025-01-21 21:49:39,356 - INFO - StuckMonitor initialized - Debug: True, Interval: 1.0s
+2025-01-21 22:07:49,690 - INFO - Starting StuckMonitor
+2025-01-21 22:07:50,774 - INFO - Change detected (difference: 11.680)
+2025-01-21 22:07:53,898 - INFO - Change detected (difference: 14.660)
+2025-01-21 22:08:00,219 - INFO - Monitor running - watching for changes
+2025-01-21 22:08:24,394 - WARNING - No changes detected for 30 seconds - performing action!
+2025-01-21 22:08:25,685 - INFO - Performed stuck action: click at (1425, 1036), typed 'continue, please', pressed Cmd+Enter
+2025-01-21 22:08:27,795 - INFO - Change detected (difference: 10.324)
+2025-01-21 22:08:30,912 - INFO - Monitor running - watching for changes
+2025-01-21 22:08:41,800 - INFO - Received signal 2
+2025-01-21 22:08:41,800 - INFO - Stopping StuckMonitor
+2025-01-21 22:08:42,317 - INFO - Stopping StuckMonitor

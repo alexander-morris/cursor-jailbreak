@@ -21,3 +21,192 @@
 
 2025-01-21 19:53:33,825 - INFO - Stopping ClickBot
 2025-01-21 19:53:33,825 - INFO - Stopping ClickBot
+2025-01-21 19:54:37,596 - INFO - ClickBot initialized - Debug: True, Interval: 3.0s, Confidence Threshold: 0.8
+2025-01-21 19:54:37,596 - INFO - Starting ClickBot
+2025-01-21 19:54:37,602 - ERROR - Monitor detection failed: 'ImageMatcher' object has no attribute 'get_monitors'
+2025-01-21 19:54:37,602 - DEBUG -   File "/Users/almorris/hustlebot_clicker/main.py", line 48, in find_cursor_monitor
+    monitors = self.matcher.get_monitors()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+2025-01-21 19:54:37,602 - ERROR - Fatal error: Failed to find Cursor monitor
+2025-01-21 19:54:37,603 - DEBUG -   File "/Users/almorris/hustlebot_clicker/main.py", line 138, in run
+    raise RuntimeError("Failed to find Cursor monitor")
+
+2025-01-21 19:54:37,603 - INFO - Stopping ClickBot
+2025-01-21 19:54:37,603 - INFO - Stopping ClickBot
+2025-01-21 19:55:13,286 - INFO - ClickBot initialized - Debug: True, Interval: 3.0s, Confidence Threshold: 0.8
+2025-01-21 19:55:13,287 - INFO - Starting ClickBot
+2025-01-21 19:55:13,352 - DEBUG - Monitor 0 scan - Confidence: 0.0000
+2025-01-21 19:55:13,360 - DEBUG - Monitor 1 scan - Confidence: 0.0000
+2025-01-21 19:55:13,369 - DEBUG - Monitor 2 scan - Confidence: 0.0000
+2025-01-21 19:55:13,369 - ERROR - Could not find Cursor application window
+2025-01-21 19:55:13,369 - ERROR - Fatal error: Failed to find Cursor monitor
+2025-01-21 19:55:13,369 - DEBUG -   File "/Users/almorris/hustlebot_clicker/main.py", line 138, in run
+    raise RuntimeError("Failed to find Cursor monitor")
+
+2025-01-21 19:55:13,369 - INFO - Stopping ClickBot
+2025-01-21 19:55:13,369 - INFO - Stopping ClickBot
+2025-01-21 19:55:44,835 - INFO - ClickBot initialized - Debug: True, Interval: 3.0s, Confidence Threshold: 0.8
+2025-01-21 19:55:44,835 - INFO - Starting ClickBot
+2025-01-21 19:55:44,902 - DEBUG - Saved scan of monitor 0 to temp/debug/monitor_0_scan.png
+2025-01-21 19:55:44,925 - DEBUG - Monitor 0 scan - Confidence: 0.0000
+2025-01-21 19:55:44,937 - DEBUG - Saved scan of monitor 1 to temp/debug/monitor_1_scan.png
+2025-01-21 19:55:44,942 - DEBUG - Monitor 1 scan - Confidence: 0.0000
+2025-01-21 19:55:44,956 - DEBUG - Saved scan of monitor 2 to temp/debug/monitor_2_scan.png
+2025-01-21 19:55:44,961 - DEBUG - Monitor 2 scan - Confidence: 0.0000
+2025-01-21 19:55:44,962 - ERROR - Could not find Cursor application window
+2025-01-21 19:55:44,962 - ERROR - Fatal error: Failed to find Cursor monitor
+2025-01-21 19:55:44,963 - DEBUG -   File "/Users/almorris/hustlebot_clicker/main.py", line 147, in run
+    raise RuntimeError("Failed to find Cursor monitor")
+
+2025-01-21 19:55:44,964 - INFO - Stopping ClickBot
+2025-01-21 19:55:44,964 - INFO - Stopping ClickBot
+2025-01-21 19:56:15,789 - INFO - ClickBot initialized - Debug: True, Interval: 3.0s, Confidence Threshold: 0.8
+2025-01-21 19:56:15,790 - INFO - Starting ClickBot
+2025-01-21 19:56:15,790 - INFO - Using primary monitor: {'left': 0, 'top': 0, 'width': 1800, 'height': 1169}
+2025-01-21 19:56:15,852 - ERROR - Failed to handle error state
+2025-01-21 19:56:15,852 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:18,926 - ERROR - Failed to handle error state
+2025-01-21 19:56:18,926 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:21,982 - ERROR - Failed to handle error state
+2025-01-21 19:56:21,982 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:25,021 - ERROR - Failed to handle error state
+2025-01-21 19:56:25,021 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:28,078 - ERROR - Failed to handle error state
+2025-01-21 19:56:28,078 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:31,147 - ERROR - Failed to handle error state
+2025-01-21 19:56:31,147 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:34,210 - ERROR - Failed to handle error state
+2025-01-21 19:56:34,210 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:37,293 - ERROR - Failed to handle error state
+2025-01-21 19:56:37,293 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:40,352 - ERROR - Failed to handle error state
+2025-01-21 19:56:40,352 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:43,410 - ERROR - Failed to handle error state
+2025-01-21 19:56:43,410 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:46,480 - ERROR - Failed to handle error state
+2025-01-21 19:56:46,480 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:49,515 - ERROR - Failed to handle error state
+2025-01-21 19:56:49,515 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:52,581 - ERROR - Failed to handle error state
+2025-01-21 19:56:52,581 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:55,626 - ERROR - Failed to handle error state
+2025-01-21 19:56:55,626 - WARNING - Error state detected but recovery failed
+2025-01-21 19:56:58,704 - ERROR - Failed to handle error state
+2025-01-21 19:56:58,704 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:01,763 - ERROR - Failed to handle error state
+2025-01-21 19:57:01,763 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:04,833 - ERROR - Failed to handle error state
+2025-01-21 19:57:04,833 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:07,892 - ERROR - Failed to handle error state
+2025-01-21 19:57:07,892 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:10,930 - ERROR - Failed to handle error state
+2025-01-21 19:57:10,930 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:13,971 - ERROR - Failed to handle error state
+2025-01-21 19:57:13,971 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:17,011 - ERROR - Failed to handle error state
+2025-01-21 19:57:17,011 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:20,049 - ERROR - Failed to handle error state
+2025-01-21 19:57:20,049 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:23,093 - ERROR - Failed to handle error state
+2025-01-21 19:57:23,093 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:26,128 - ERROR - Failed to handle error state
+2025-01-21 19:57:26,128 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:29,161 - ERROR - Failed to handle error state
+2025-01-21 19:57:29,162 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:32,194 - ERROR - Failed to handle error state
+2025-01-21 19:57:32,194 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:35,245 - ERROR - Failed to handle error state
+2025-01-21 19:57:35,245 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:38,283 - ERROR - Failed to handle error state
+2025-01-21 19:57:38,283 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:41,345 - ERROR - Failed to handle error state
+2025-01-21 19:57:41,345 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:44,400 - ERROR - Failed to handle error state
+2025-01-21 19:57:44,401 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:47,482 - ERROR - Failed to handle error state
+2025-01-21 19:57:47,482 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:50,538 - ERROR - Failed to handle error state
+2025-01-21 19:57:50,538 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:53,599 - ERROR - Failed to handle error state
+2025-01-21 19:57:53,599 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:56,640 - ERROR - Failed to handle error state
+2025-01-21 19:57:56,640 - WARNING - Error state detected but recovery failed
+2025-01-21 19:57:59,694 - ERROR - Failed to handle error state
+2025-01-21 19:57:59,694 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:02,745 - ERROR - Failed to handle error state
+2025-01-21 19:58:02,745 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:05,793 - ERROR - Failed to handle error state
+2025-01-21 19:58:05,793 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:08,841 - ERROR - Failed to handle error state
+2025-01-21 19:58:08,841 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:11,898 - ERROR - Failed to handle error state
+2025-01-21 19:58:11,898 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:14,960 - ERROR - Failed to handle error state
+2025-01-21 19:58:14,960 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:18,007 - ERROR - Failed to handle error state
+2025-01-21 19:58:18,007 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:21,066 - ERROR - Failed to handle error state
+2025-01-21 19:58:21,066 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:24,127 - ERROR - Failed to handle error state
+2025-01-21 19:58:24,127 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:27,194 - ERROR - Failed to handle error state
+2025-01-21 19:58:27,194 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:30,244 - ERROR - Failed to handle error state
+2025-01-21 19:58:30,244 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:33,295 - ERROR - Failed to handle error state
+2025-01-21 19:58:33,295 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:36,347 - ERROR - Failed to handle error state
+2025-01-21 19:58:36,347 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:39,395 - ERROR - Failed to handle error state
+2025-01-21 19:58:39,395 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:42,450 - ERROR - Failed to handle error state
+2025-01-21 19:58:42,450 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:45,516 - ERROR - Failed to handle error state
+2025-01-21 19:58:45,516 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:48,581 - ERROR - Failed to handle error state
+2025-01-21 19:58:48,581 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:51,641 - ERROR - Failed to handle error state
+2025-01-21 19:58:51,641 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:54,703 - ERROR - Failed to handle error state
+2025-01-21 19:58:54,703 - WARNING - Error state detected but recovery failed
+2025-01-21 19:58:57,743 - ERROR - Failed to handle error state
+2025-01-21 19:58:57,744 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:00,780 - ERROR - Failed to handle error state
+2025-01-21 19:59:00,780 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:03,846 - ERROR - Failed to handle error state
+2025-01-21 19:59:03,846 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:06,908 - ERROR - Failed to handle error state
+2025-01-21 19:59:06,908 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:09,973 - ERROR - Failed to handle error state
+2025-01-21 19:59:09,973 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:13,029 - ERROR - Failed to handle error state
+2025-01-21 19:59:13,029 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:16,090 - ERROR - Failed to handle error state
+2025-01-21 19:59:16,090 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:19,122 - ERROR - Failed to handle error state
+2025-01-21 19:59:19,122 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:22,162 - ERROR - Failed to handle error state
+2025-01-21 19:59:22,163 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:25,211 - ERROR - Failed to handle error state
+2025-01-21 19:59:25,211 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:28,274 - ERROR - Failed to handle error state
+2025-01-21 19:59:28,274 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:31,331 - ERROR - Failed to handle error state
+2025-01-21 19:59:31,331 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:34,367 - ERROR - Failed to handle error state
+2025-01-21 19:59:34,367 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:37,413 - ERROR - Failed to handle error state
+2025-01-21 19:59:37,413 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:40,468 - ERROR - Failed to handle error state
+2025-01-21 19:59:40,468 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:43,525 - ERROR - Failed to handle error state
+2025-01-21 19:59:43,525 - WARNING - Error state detected but recovery failed
+2025-01-21 19:59:46,563 - ERROR - Failed to handle error state
+2025-01-21 19:59:46,563 - WARNING - Error state detected but recovery failed
+2025-01-21 20:32:32,918 - INFO - ClickBot initialized - Debug: True, Interval: 3.0s
+2025-01-21 20:36:07,814 - INFO - Starting ClickBot
+2025-01-21 20:36:10,914 - DEBUG - Change detected! Mean difference: 11.51
+2025-01-21 20:36:13,778 - INFO - Received signal 2
+2025-01-21 20:36:13,778 - INFO - Stopping ClickBot
+2025-01-21 20:36:13,917 - INFO - Stopping ClickBot
