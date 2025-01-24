@@ -20,15 +20,72 @@ An automated UI interaction tool with two implementations:
 
 ## Installation
 
-1. Install dependencies:
+1. Install system dependencies (Linux):
+```bash
+sudo apt-get install python3-tk python3-dev
+```
+If these packages are already installed, you'll see a message like:
+```
+python3-tk is already the newest version
+python3-dev is already the newest version
+```
+
+2. Create and activate a Python virtual environment:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+Your prompt should change to show `(venv)` at the beginning, indicating the virtual environment is active.
+
+3. Install Python dependencies:
 ```bash
 pip install -r requirements.txt
 ```
+You should see several packages being downloaded and installed, including `opencv-python`, `numpy`, `pyautogui`, and others. The installation is successful when you see "Successfully installed..." followed by a list of packages.
 
-2. Set up reference images:
+4. Set up reference images:
    - Create an `images` directory if it doesn't exist
    - For `main.py`: Add `cursor-screen-head.png` (screenshot of Cursor window header)
    - For `basic_clicker.py`: No reference images needed (uses calibration)
+
+To verify the setup was successful, run:
+```bash
+python3 basic_clicker.py --calibrate
+```
+You should see:
+```
+Running calibration...
+
+Currently have 0 targets.
+
+=== Button Present Calibration ===
+Target #1
+1. Hover over the target button when it IS present (DO NOT CLICK)...
+```
+If you see this output, the setup is complete and you can proceed with calibration.
+
+## Quick Start (Linux)
+
+A convenience script is provided to handle all setup and verification:
+
+1. First time setup with calibration:
+```bash
+./start-clicker.sh --calibrate
+```
+
+2. Normal operation (after calibration):
+```bash
+./start-clicker.sh
+```
+
+The script will:
+- Check for required system packages
+- Create and activate virtual environment if needed
+- Install Python dependencies if missing
+- Create images directory if it doesn't exist
+- Run the clicker in the specified mode
+
+Each step will show a ✓ when successful or ✗ with an error message if something needs attention.
 
 ## Basic Clicker (basic_clicker.py)
 
