@@ -1,163 +1,136 @@
 # Cursor Auto Accept
 
-A tool for automatically accepting Cursor's AI suggestions.
+An intelligent bot for automatically accepting Cursor AI suggestions across multiple monitors.
 
-## Important Note
+## Project Overview
 
-The `analyze_hover_results.py` script is the current working version for analyzing button positions and matches. This script:
-- Takes a full screen screenshot
-- Analyzes potential button matches using template matching
-- Groups matches by x-axis position
-- Prioritizes matches by confidence and y-axis position
-- Generates a visualization showing calibration points and matches
-- Uses color coding to distinguish between different buttons (green, yellow, red)
-
-Other calibration scripts have been moved to the `_archive` directory.
+Cursor Auto Accept is an automated tool designed to streamline the workflow of developers using Cursor AI by automatically detecting and clicking the "Accept" button for AI-generated code suggestions. This bot supports multi-monitor setups, provides detailed logging, and includes advanced features like rate limiting and error recovery.
 
 ## Features
 
-- Multi-monitor support with per-monitor calibration
-- Rate limiting (max 8 clicks per minute)
-- Cursor position restoration after clicks
-- Automatic calibration
-- Process management (start/stop scripts)
-- Detailed logging
+- 🖥️ Multi-monitor support
+- 🤖 Automatic AI suggestion acceptance
+- 📍 Precise button detection using template matching
+- 🔒 Rate limiting (max 8 clicks per minute)
+- 🔍 High-confidence matching (80% threshold)
+- 📊 Comprehensive logging and monitoring
+- 🛡️ Error recovery mechanisms
+- 🖱️ Cursor position restoration after clicks
 
-## Setup
+## Technologies Used
 
-1. Clone this repository:
-```bash
-git clone https://github.com/yourusername/cursor-auto-accept
-cd cursor-auto-accept
-```
+- **Language**: Python 3.8+
+- **Libraries**:
+  - OpenCV (image processing)
+  - PyAutoGUI (GUI automation)
+  - MSS (Multi-Screen Screenshot)
+  - NumPy (numerical computing)
+  - Pillow (image handling)
+
+## Prerequisites
+
+- Python 3.8 or higher
+- Git
+- Access to a terminal/command line
+
+## Getting Started
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/cursor-auto-accept.git
+   cd cursor-auto-accept
+   ```
 
 2. Run the setup script:
-```bash
-./setup.sh
-```
-This will:
-- Create necessary directories
-- Set up permissions
-- Create a Python virtual environment
-- Install required packages
-
-## Calibration
-
-Before first use, you need to calibrate the bot for each monitor where you use Cursor:
-
-1. Stop the bot if it's running:
-```bash
-./stop_clickbot.sh
-```
-
-2. Run calibration mode:
-
-   For all monitors:
    ```bash
-   source venv/bin/activate
+   ./setup.sh
+   ```
+   This script will:
+   - Create necessary directories
+   - Set up permissions
+   - Create a Python virtual environment
+   - Install required dependencies
+
+### Calibration
+
+Before first use, calibrate the bot for each monitor:
+
+1. Stop any running bot instances:
+   ```bash
+   ./stop_clickbot.sh
+   ```
+
+2. Run calibration:
+   ```bash
+   # Calibrate all monitors
    python cursor_auto_accept.py --capture
+
+   # Or calibrate a specific monitor
+   python cursor_auto_accept.py --capture --monitor 0
    ```
 
-   For a specific monitor (0-based index):
-   ```bash
-   python cursor_auto_accept.py --capture --monitor 0  # First monitor
-   python cursor_auto_accept.py --capture --monitor 1  # Second monitor
-   ```
-
-3. Follow the calibration steps for each monitor:
+3. Follow on-screen instructions:
    - Move Cursor to the target monitor
-   - Trigger an AI prompt (so you can see the accept button)
-   - Move your mouse over the accept button
-   - Keep it still for 5 seconds
-   - Wait for confirmation message
-   - Press Enter to continue to next monitor (if calibrating all)
+   - Trigger an AI prompt
+   - Move mouse over the accept button
+   - Keep mouse still for 5 seconds
+   - Wait for confirmation
 
-The bot will save separate accept button images for each monitor in:
-```
-assets/monitor_0/accept_button.png
-assets/monitor_1/accept_button.png
-...
-```
+### Usage
 
-## Usage
-
-### Starting the Bot
-
+Start the bot:
 ```bash
 ./start_clickbot.sh
 ```
 
-The bot will:
-- Check if another instance is running
-- Load calibration images for all monitors
-- Start monitoring all screens
-- Begin accepting prompts automatically
-
-### Stopping the Bot
-
+Stop the bot:
 ```bash
 ./stop_clickbot.sh
 ```
 
-### Monitoring
-
-The bot logs all activity to `temp/logs/clickbot.log`. You can monitor it with:
+Monitor logs:
 ```bash
 tail -f temp/logs/clickbot.log
 ```
 
+## Project Structure
+
+```
+.
+├── assets/               # Calibration images per monitor
+├── debug/                # Debug and diagnostic images
+├── temp/                 # Runtime files and logs
+├── cursor_auto_accept.py # Main bot script
+├── setup.sh              # Environment setup script
+├── start_clickbot.sh     # Bot start script
+└── stop_clickbot.sh      # Bot stop script
+```
+
 ## Configuration
 
-The bot has several built-in settings:
+Configurable settings include:
 - Rate limit: 8 clicks per minute
-- Confidence threshold: 0.8 (80% match required)
+- Confidence threshold: 0.8 (80% match)
 - Search interval: 0.2 seconds
 - Log update interval: 5 seconds
 
 ## Troubleshooting
 
-1. If the bot isn't clicking on a specific monitor:
-   - Recalibrate that monitor: `python cursor_auto_accept.py --capture --monitor X`
-   - Check the logs for monitor-specific errors
-   - Ensure Cursor's accept button is visible on that monitor
+- Check logs for specific error details
+- Recalibrate monitors with unclear button detection
+- Ensure no other bot instances are running
+- Verify Python environment activation
 
-2. If clicks are inaccurate:
-   - Recalibrate with a clearer view of the accept button
-   - Make sure the button isn't partially obscured
-   - Try calibrating in different lighting conditions
+## Contributing
 
-3. If the bot won't start:
-   - Check if another instance is running
-   - Verify the PID file in `temp/clickbot.pid`
-   - Ensure Python environment is activated
-
-## Directory Structure
-
-```
-.
-├── assets/                    # Calibration images
-│   ├── monitor_0/            # First monitor
-│   │   └── accept_button.png
-│   └── monitor_1/            # Second monitor
-│       └── accept_button.png
-├── temp/                     # Runtime files
-│   ├── clickbot.pid          # Process ID
-│   └── logs/                # Log files
-├── cursor_auto_accept.py     # Main bot script
-├── setup.sh                  # Setup script
-├── start_clickbot.sh         # Start script
-└── stop_clickbot.sh          # Stop script
-```
-
-## Requirements
-
-- Python 3.8+
-- OpenCV
-- PyAutoGUI
-- MSS (Multi-Screen Shot)
-- NumPy
-- Pillow
+Contributions are welcome! Please read the contributing guidelines and submit pull requests to the main repository.
 
 ## License
 
-MIT License 
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+## Disclaimer
+
+Use this tool responsibly and in compliance with Cursor's terms of service. The tool is meant to enhance productivity, not to abuse AI generation.
